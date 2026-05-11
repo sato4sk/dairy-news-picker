@@ -40,11 +40,17 @@
 - [x] デプロイ構成の作成 (vercel.json, docs/deployment.md)
 - [x] 定期実行 (GCP Cloud Functions) のコード作成 (functions/)
 - [x] デプロイ準備 (API キー設定等)
+- [x] Vercel ビルドエラーの修正 (TypeScript 型エラー修正)
 
 ---
 
 ## プロジェクト完了
 すべての要件を満たすハイブリッド MVP が完成しました。
+
+### 最近の修正
+- `src/app/(authenticated)/page.tsx`: Base UI の `PopoverTrigger` で未サポートだった `asChild` プロップを削除。
+- `src/lib/mock-data.ts`: `Article` 型の定義に合わせて `summary` を `description` に修正。
+- `npm run build` が正常に通過することを確認済み。
 
 ### 構成
 1. **Frontend (Vercel)**: Next.js PWA アプリ。
