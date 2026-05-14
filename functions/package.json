@@ -2,10 +2,14 @@
   "name": "dairy-news-picker-functions",
   "version": "1.0.0",
   "main": "index.js",
+  "scripts": {
+    "start": "functions-framework --target=processFeeds",
+    "dev": "functions-framework --target=processFeeds --port=8080"
+  },
   "dependencies": {
-    "@google-cloud/functions-framework": "^3.0.0",
-    "firebase-admin": "^11.0.0",
-    "@google/generative-ai": "^0.11.0",
+    "@google-cloud/functions-framework": "^3.5.0",
+    "firebase-admin": "^13.0.0",
+    "@google/genai": "^0.8.0",
     "rss-parser": "^3.13.0",
     "date-fns": "^2.30.0"
   }

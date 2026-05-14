@@ -14,6 +14,7 @@ export async function getArticlesByDate(date: Date, groupId: string): Promise<Ar
   const snapshot = await adminDb
     .collection(ARTICLES_COLLECTION)
     .where('group', '==', groupId)
+    .where('status', '==', 'in_feed')
     .where('published_at', '>=', start.toISOString())
     .where('published_at', '<=', end.toISOString())
     .orderBy('published_at', 'desc')

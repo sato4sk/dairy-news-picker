@@ -2,36 +2,43 @@
 
 毎朝のRSSフィードの消化を高速化し、週末の精読とNotebookLMへの登録作業を効率化するための個人専用Webアプリケーション。
 
-## 継続開発プロトコル
+## 開発の前提条件 (Mandates)
 
-このプロジェクトは複数のセッションにわたって開発されます。セッション開始時に以下の手順で状況を確認してください。
+### 状態管理とデータ整合性
+- **`is_triaged` フラグの重視**: バックエンド（Cloud Functions）では、記事が処理済みかどうかを `is_triaged` (Boolean) フィールドで管理します。RSS取得側（`fetchFeeds`）は既存の記事を UPSERT する際、`status` や `is_triaged` フィールドを**書き換えてはいけません**。
+- **冪等性の確保**: `fetchFeeds` は `db.getAll()` を使用して既存記事を判定し、新規記事のみ `is_triaged: false` で初期化します。
 
-1.  **進捗の確認**: `docs/progress.md` を読み、現在のフェーズと未完了のタスクを確認する。
-2.  **設計の参照**: `requirement.md` および `plans/` フォルダ内の各フェーズ詳細プランを参照する。
-3.  **GEMINI.md の遵守**: このファイルに記載された規約とワークフローに従う。
+### Next.js に関する重要事項
+- このプロジェクトで使用されている Next.js は、標準的な仕様やファイル構成と異なる点があります。コードを記述する前に必ず `node_modules/next/dist/docs/` の関連ガイドを確認し、非推奨通知には細心の注意を払ってください。
 
-## 開発規約
+## 技術スタックと規約
 
 - **フレームワーク**: Next.js (App Router)
 - **UI**: Tailwind CSS + shadcn/ui
 - **DB**: Firestore
-- **LLM**: Gemini 2.5 Flash
-- **認証**: Middlewareによる簡易パスワード認証
+- **LLM**: Gemini 2.5 Flash / Gemini 3.1 Flash-lite 等
+  - `triageArticles` ではモデルのフォールバックロジックが実装されています。
+- **認証**: Middlewareによる簡易パスワード認証 (`APP_PASSWORD`)
 - **PWA**: iPad横画面に最適化（大きなボタン、タップ領域の確保）
 
-## セッション終了時のアクション
+## 開発ワークフロー
 
-セッションを終了する際は、必ず以下の作業を行ってください：
-1.  `docs/progress.md` を更新し、完了したタスクと次に着手すべき内容を明記する。
-2.  新しく作成したファイルや重要な変更点を `docs/progress.md` に記録する。
+### プルリクエスト (Pull Requests)
+プルリクエストの作成には GitHub CLI (`gh`) を使用することを標準手順とします。
+1. ブランチを push する: `git push -u origin <branch-name>`
+2. PR を作成する: `gh pr create --title "<title>" --body "<body>"`
 
-## ディレクトリ構成（予定）
+### バックエンド処理 (GCP Cloud Functions)
+- **並列化**: フィードの取得はグループ単位で並列実行されます。
+- **フィルタ**: RSS取得は過去12時間以内の記事を対象とします。
+
+## ディレクトリ構成
 
 - `src/app`: Next.js App Router
 - `src/components`: UIコンポーネント
 - `src/lib`: Firestore, Gemini API 等の共通ロジック
-- `src/hooks`: カスタムフック
 - `src/types`: TypeScript型定義
 - `functions/`: GCP Cloud Functions (RSS取得・LLM処理)
-- `docs/`: 進捗管理・設計メモ
+- `docs/`: 設計メモ（`progress.md` は GitHub Issues に移行したため廃止）
 - `plans/`: フェーズごとの詳細実装プラン
+- `scripts/`: メンテナンス・移行用ユーティリティ
