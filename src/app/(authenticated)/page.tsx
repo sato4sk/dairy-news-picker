@@ -47,22 +47,26 @@ export default function TriagePage() {
   }, [fetchData]);
 
   const handleTriage = async (id: string, newStatus: ArticleStatus) => {
-    // Optimistic UI update
-    const article = articles.find((a) => a.id === id);
-    setArticles((prev) => prev.filter((a) => a.id !== id));
+    // Optimistic UI update: Update status in place to avoid layout shift
+    const previousArticles = [...articles];
+    setArticles((prev) => 
+      prev.map((a) => a.id === id ? { ...a, status: newStatus } : a)
+    );
 
     try {
       await updateArticleStatus(id, newStatus);
       toast.success(`Article moved to ${newStatus}`);
     } catch (error) {
       // Revert on failure
-      if (article) setArticles((prev) => [...prev, article]);
+      setArticles(previousArticles);
       console.error('Failed to update status:', error);
       toast.error('Failed to update status in database.');
     }
   };
 
-  const filteredArticles = articles.filter((a) => a.status === 'in_feed');
+  // We now show articles that are 'in_feed' OR were just triaged to 'to_read'/'to_notebook'/'done'
+  // to keep them visible for feedback.
+  const filteredArticles = articles;
 
   const categorizedArticles: Record<ArticleCategory, Article[]> = {
     core: filteredArticles.filter((a) => a.category === 'core'),
@@ -82,7 +86,7 @@ export default function TriagePage() {
         <div className="space-y-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Morning Triage</h2>
-            <p className="text-slate-500">Review and categorize today's news.</p>
+            <p className="text-slate-500">Review and categorize today&apos;s news.</p>
           </div>
           
           <div className="flex items-center gap-2">
@@ -153,30 +157,27 @@ export default function TriagePage() {
           <section className="rounded-2xl border bg-white p-6 shadow-sm md:p-8 selection-enabled">
             <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs text-blue-700">AI</span>
-              Today's Summary
+              Today&apos;s Summary
             </h3>
-            <p className="text-slate-600 leading-relaxed md:text-lg">
+            <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
               {summary?.content || "No summary available for this date and group."}
             </p>
           </section>
 
-          <Tabs defaultValue="core" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-14 bg-slate-100 p-1 rounded-xl">
-              <TabsTrigger value="core" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600">
-                Core ({categorizedArticles.core.length})
-              </TabsTrigger>
-              <TabsTrigger value="related" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600">
-                Related ({categorizedArticles.related.length})
-              </TabsTrigger>
-              <TabsTrigger value="random" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600">
-                Random ({categorizedArticles.random.length})
-              </TabsTrigger>
-            </TabsList>
-
+          <div className="space-y-10">
             {(['core', 'related', 'random'] as const).map((category) => (
-              <TabsContent key={category} value={category} className="mt-6">
+              <section key={category} className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
+                    {category}
+                    <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {categorizedArticles[category].length}
+                    </span>
+                  </h3>
+                </div>
+
                 {categorizedArticles[category].length > 0 ? (
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
                     {categorizedArticles[category].map((article) => (
                       <ArticleCard
                         key={article.id}
@@ -186,14 +187,13 @@ export default function TriagePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                    <p className="text-slate-400 font-medium text-lg">No more articles in this category.</p>
-                    <p className="text-slate-400 text-sm">You're all caught up!</p>
+                  <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
+                    <p className="text-slate-400 font-medium">No articles in {category}.</p>
                   </div>
                 )}
-              </TabsContent>
+              </section>
             ))}
-          </Tabs>
+          </div>
         </>
       )}
     </div>
