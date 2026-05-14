@@ -1,5 +1,5 @@
 export type ArticleCategory = 'core' | 'related' | 'random';
-export type ArticleStatus = 'in_feed' | 'to_read' | 'to_notebook' | 'done';
+export type ArticleStatus = 'raw' | 'in_feed' | 'to_read' | 'to_notebook' | 'done';
 
 export interface Article {
   id: string;
