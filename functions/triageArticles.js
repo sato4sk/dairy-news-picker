@@ -168,8 +168,17 @@ const triageArticles = async (req, res) => {
       if (coreAndRelated.length > 0) {
         const summaryPrompt = `
           Generate a daily summary (朝の要約) in Japanese for the group "${groupConfig.name}".
-          Highlight key trends and important news from the following articles:
+          Highlight key trends and important news from the following articles.
           
+          Rules:
+          - Do NOT include any title like "【IT-News 本日の朝刊要約】".
+          - Summarize into 3-5 key points.
+          - Start each point on a NEW line.
+          - Do NOT add blank lines between points.
+          - Each point should start with a number (e.g., "1. ") or a bullet.
+          - Keep it concise and plain text.
+          
+          Articles:
           ${coreAndRelated.map(a => `- ${a.title}`).join("\n")}
         `;
 

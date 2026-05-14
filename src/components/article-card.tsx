@@ -1,9 +1,8 @@
 'use client';
 
 import { Article } from '@/types';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { BookOpen, Library, X } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BookOpen, Library, Check } from 'lucide-react';
 
 interface ArticleCardProps {
   article: Article;
@@ -11,56 +10,67 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, onTriage }: ArticleCardProps) {
+  const isTriaged = article.status !== 'in_feed';
+
   return (
-    <Card className="flex flex-col h-full overflow-hidden transition-shadow hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start gap-4">
-          <a 
-            href={article.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="group"
-          >
-            <CardTitle className="text-lg font-bold leading-snug group-hover:text-blue-600 transition-colors">
-              {article.title}
-            </CardTitle>
-          </a>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 pb-4 selection-enabled">
-        <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">
-          {article.description}
-        </p>
-      </CardContent>
-      <CardFooter className="grid grid-cols-3 gap-2 p-3 bg-slate-50/50 border-t">
-        <Button 
-          variant="outline" 
-          size="lg"
-          className="h-16 flex-col gap-1 rounded-xl border-red-100 hover:bg-red-50 hover:text-red-600"
-          onClick={() => onTriage(article.id, 'done')}
-        >
-          <X className="h-6 w-6" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Skip</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          size="lg"
-          className="h-16 flex-col gap-1 rounded-xl border-blue-100 hover:bg-blue-50 hover:text-blue-600"
+    <Card className={`flex flex-row h-full overflow-hidden transition-all duration-300 border-slate-200 p-0 gap-0 ${
+      isTriaged ? 'opacity-60 grayscale-[0.8] bg-slate-50 shadow-none' : 'hover:shadow-md'
+    }`}>
+      <div className="flex-1 flex flex-col min-w-0 py-3">
+        <CardHeader className="px-4 py-1">
+          <div className="flex justify-between items-start gap-4">
+            <a 
+              href={article.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={`group transition-colors ${isTriaged ? 'pointer-events-none' : ''}`}
+            >
+              <CardTitle className={`text-base font-bold leading-tight transition-colors line-clamp-2 ${
+                isTriaged ? 'text-slate-500' : 'group-hover:text-blue-600 text-slate-900'
+              }`}>
+                {article.title}
+              </CardTitle>
+            </a>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 py-1 selection-enabled">
+          <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">
+            {article.description}
+          </p>
+        </CardContent>
+      </div>
+
+      <div className="flex flex-col border-l bg-slate-50/50 w-12 shrink-0">
+        <button 
+          className={`flex-1 flex items-center justify-center transition-colors border-b border-slate-200 ${
+            article.status === 'to_read' 
+              ? 'bg-blue-100 text-blue-600' 
+              : 'hover:bg-blue-50 hover:text-blue-600 text-slate-400'
+          }`}
           onClick={() => onTriage(article.id, 'to_read')}
+          title="Read Later"
+          disabled={isTriaged}
         >
-          <BookOpen className="h-6 w-6" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Read Later</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          size="lg"
-          className="h-16 flex-col gap-1 rounded-xl border-purple-100 hover:bg-purple-50 hover:text-purple-600"
+          <BookOpen className="h-5 w-5" />
+        </button>
+        <button 
+          className={`flex-1 flex items-center justify-center transition-colors ${
+            article.status === 'to_notebook' 
+              ? 'bg-purple-100 text-purple-600' 
+              : 'hover:bg-purple-50 hover:text-purple-600 text-slate-400'
+          }`}
           onClick={() => onTriage(article.id, 'to_notebook')}
+          title="NotebookLM"
+          disabled={isTriaged}
         >
-          <Library className="h-6 w-6" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">NotebookLM</span>
-        </Button>
-      </CardFooter>
+          <Library className="h-5 w-5" />
+        </button>
+        {article.status === 'done' && (
+          <div className="absolute inset-y-0 right-0 w-12 flex items-center justify-center bg-slate-200/50 text-slate-600">
+            <Check className="h-6 w-6" />
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
