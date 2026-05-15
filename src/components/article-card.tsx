@@ -16,27 +16,28 @@ export function ArticleCard({ article, onTriage }: ArticleCardProps) {
     <Card className={`flex flex-row h-full overflow-hidden transition-all duration-300 border-slate-200 p-0 gap-0 ${
       isTriaged ? 'opacity-60 grayscale-[0.8] bg-slate-50 shadow-none' : 'hover:shadow-md'
     }`}>
-      <div className="flex-1 flex flex-col min-w-0 py-3">
-        <CardHeader className="px-4 py-1">
-          <div className="flex justify-between items-start gap-4">
-            <a 
-              href={article.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className={`group transition-colors ${isTriaged ? 'pointer-events-none' : ''}`}
-            >
-              <CardTitle className={`text-base font-bold leading-tight transition-colors line-clamp-2 ${
-                isTriaged ? 'text-slate-500' : 'group-hover:text-blue-600 text-slate-900'
-              }`}>
-                {article.title}
-              </CardTitle>
-            </a>
-          </div>
+      <div className="flex-1 flex flex-col min-w-0 py-2">
+        <CardHeader className="px-4 py-0.5">
+          <a 
+            href={article.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={`group transition-colors ${isTriaged ? 'pointer-events-none' : ''}`}
+          >
+            <CardTitle className={`text-base font-bold leading-tight transition-colors line-clamp-2 ${
+              isTriaged ? 'text-slate-500' : 'group-hover:text-blue-600 text-slate-900'
+            }`}>
+              {article.title}
+            </CardTitle>
+          </a>
         </CardHeader>
-        <CardContent className="px-4 py-1 selection-enabled">
+        <CardContent className="px-4 py-0.5 selection-enabled flex flex-col gap-1.5">
           <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">
             {article.description}
           </p>
+          <div className="text-[9px] font-medium text-slate-400 uppercase tracking-tight leading-none mt-1">
+            {article.source || 'News Source'}
+          </div>
         </CardContent>
       </div>
 

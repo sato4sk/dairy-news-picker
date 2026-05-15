@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 const { GoogleGenAI } = require("@google/genai");
-const { format } = require('date-fns');
+const { format, addHours } = require('date-fns');
 const { FEED_GROUPS } = require('./config');
 
 // Initialize Admin SDK
@@ -93,28 +93,30 @@ const triageArticles = async (req, res) => {
   let currentModelIndex = 0;
 
   try {
-    const snapshot = await db.collection('articles')
-      .where('is_triaged', '==', false)
-      .limit(500)
-      .get();
-
-    if (snapshot.empty) {
-      return res.status(200).send('No untriaged articles to process');
-    }
-
-    const allRawArticles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const now = new Date();
+    // Use true UTC for timestamp
+    const triagedAt = now.toISOString();
     
-    const groups = {};
-    allRawArticles.forEach(a => {
-      if (!groups[a.group]) groups[a.group] = [];
-      groups[a.group].push(a);
-    });
+    // Use JST for logical daily grouping (e.g. 6:00 AM JST is today's triage)
+    const jstNow = addHours(now, 9);
+    const today = format(jstNow, 'yyyy-MM-dd');
 
-    for (const groupId in groups) {
-      const groupConfig = FEED_GROUPS.find(g => g.id === groupId);
-      if (!groupConfig) continue;
+    console.log(`Starting triage at UTC: ${triagedAt} (JST: ${today})`);
 
-      const articles = groups[groupId];
+    for (const groupConfig of FEED_GROUPS) {
+      const groupId = groupConfig.id;
+      const snapshot = await db.collection('articles')
+        .where('group', '==', groupId)
+        .where('is_triaged', '==', false)
+        .limit(300)
+        .get();
+
+      if (snapshot.empty) {
+        console.log(`No untriaged articles for group: ${groupConfig.name}`);
+        continue;
+      }
+
+      const articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log(`Triaging ${articles.length} articles for group: ${groupConfig.name}`);
 
       const CHUNK_SIZE = 100;
@@ -152,6 +154,7 @@ const triageArticles = async (req, res) => {
             category: p.category === 'ignore' ? null : p.category,
             is_triaged: true,
             status: p.category === 'ignore' ? 'done' : 'in_feed',
+            triaged_at: triagedAt,
           };
           
           batch.update(db.collection('articles').doc(orig.id), updateData);
@@ -185,7 +188,6 @@ const triageArticles = async (req, res) => {
         const { result: summaryResult, nextIndex: sIdx } = await callGemini(summaryPrompt, summarySchema, currentModelIndex);
         currentModelIndex = sIdx;
 
-        const today = format(new Date(), 'yyyy-MM-dd');
         const summaryId = `${today}_${groupId}`;
         await db.collection('daily_summaries').doc(summaryId).set({
           id: summaryId,
