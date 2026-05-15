@@ -21,7 +21,30 @@
 - `GEMINI_API_KEY`: Google AI Studio の API キー
 - `CRON_SECRET`: (任意) リクエスト認証用シークレット
 
-## 3. デプロイ手順 (Web コンソール版)
+## 3. デプロイ手順 (CLI版 - 推奨)
+
+オートメーション化のため、`gcloud` CLI を使用したデプロイ用スクリプトを用意しています。
+
+### A. 事前準備
+1. `gcloud` CLI がインストールされ、適切なプロジェクトが設定されていることを確認してください。
+2. 環境変数の設定ファイルを作成します。
+   ```bash
+   make setup-env
+   ```
+3. 生成された `.env.deploy` を開き、以下の値を入力してください。
+   - `GEMINI_API_KEY`: Google AI Studio の API キー
+   - `GOOGLE_CLOUD_PROJECT`: GCP プロジェクト ID
+
+### B. 関数のデプロイ
+以下のコマンドで、既存の `news-picker-fetch-feeds` と `news-picker-triage-articles` が更新されます。
+```bash
+make deploy-functions
+```
+
+### C. Cloud Scheduler の設定
+スクリプト実行後の出力に表示される `gcloud scheduler jobs create` コマンドをコピーして実行することで、定期実行ジョブを CLI から作成できます。
+
+## 4. デプロイ手順 (Web コンソール版)
 
 ### A. フロントエンド (Vercel)
 GitHub リポジトリを Vercel に連携してデプロイしてください。
@@ -63,3 +86,5 @@ GitHub リポジトリを Vercel に連携してデプロイしてください�
 
 
 これで、外部からの直接アクセスは拒否され、Cloud Scheduler (IAM トークンを持つ) からのみ実行可能な安全な構成になります。
+��ります。
+��なります。

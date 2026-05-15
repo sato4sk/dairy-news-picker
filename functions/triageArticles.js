@@ -84,11 +84,6 @@ async function callGemini(prompt, schema, modelIndex) {
  * 2. Triage 'raw' articles using Gemini
  */
 const triageArticles = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).send('Unauthorized');
-  }
-
   const triageStartTime = Date.now();
   let currentModelIndex = 0;
 

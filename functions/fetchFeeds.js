@@ -14,11 +14,6 @@ const parser = new Parser();
  * 1. Fetch RSS Feeds and save to Firestore as 'raw'
  */
 const fetchFeeds = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).send('Unauthorized');
-  }
-
   try {
     const results = await Promise.all(FEED_GROUPS.map(async (group) => {
       console.log(`Fetching group: ${group.name}`);

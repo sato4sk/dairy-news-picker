@@ -12,7 +12,7 @@ functions/node_modules/
 !.yarn/versions
 
 # Local scripts and temp env
-scripts/
+# scripts/  <-- Removed to allow deployment scripts
 tmp.env
 
 # testing
@@ -37,6 +37,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.deploy.example
 
 # Firebase Service Account & Personal Data
 *-firebase-adminsdk-*.json
