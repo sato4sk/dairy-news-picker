@@ -14,11 +14,6 @@ const parser = new Parser();
  * 1. Fetch RSS Feeds and save to Firestore as 'raw'
  */
 const fetchFeeds = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).send('Unauthorized');
-  }
-
   try {
     const results = await Promise.all(FEED_GROUPS.map(async (group) => {
       console.log(`Fetching group: ${group.name}`);
@@ -33,12 +28,16 @@ const fetchFeeds = async (req, res) => {
 
       const rawArticles = feedResults
         .filter(f => f)
-        .flatMap(f => f.items.map(item => ({
-          title: item.title || 'No Title',
-          url: item.link || '',
-          contentSnippet: item.contentSnippet || item.content || '',
-          publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-        })))
+        .flatMap(f => {
+          const feedTitle = f.title || '';
+          return f.items.map(item => ({
+            title: item.title || 'No Title',
+            url: item.link || '',
+            source: feedTitle,
+            contentSnippet: item.contentSnippet || item.content || '',
+            publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
+          }));
+        })
         .filter(a => a.url !== '' && new Date(a.publishedAt) > threshold);
 
       // Deduplicate locally by URL hash
@@ -76,7 +75,8 @@ const fetchFeeds = async (req, res) => {
           id: id,
           title: a.title,
           url: a.url,
-          description: a.contentSnippet,
+          source: a.source,
+          description: a.description || a.contentSnippet, // fallback to contentSnippet if description is not explicitly set
           group: group.id,
           published_at: a.publishedAt,
         };

@@ -10,6 +10,7 @@ export const MOCK_ARTICLES: Article[] = [
     category: 'core',
     status: 'in_feed',
     published_at: new Date().toISOString(),
+    triaged_at: new Date().toISOString(),
     queued_at: null,
   },
   {
@@ -21,6 +22,7 @@ export const MOCK_ARTICLES: Article[] = [
     category: 'related',
     status: 'in_feed',
     published_at: new Date().toISOString(),
+    triaged_at: new Date().toISOString(),
     queued_at: null,
   },
   {
@@ -32,6 +34,7 @@ export const MOCK_ARTICLES: Article[] = [
     category: 'random',
     status: 'in_feed',
     published_at: new Date().toISOString(),
+    triaged_at: new Date().toISOString(),
     queued_at: null,
   },
   {
@@ -43,6 +46,7 @@ export const MOCK_ARTICLES: Article[] = [
     category: 'core',
     status: 'in_feed',
     published_at: new Date().toISOString(),
+    triaged_at: new Date().toISOString(),
     queued_at: null,
   },
   {
@@ -54,6 +58,7 @@ export const MOCK_ARTICLES: Article[] = [
     category: 'related',
     status: 'in_feed',
     published_at: new Date().toISOString(),
+    triaged_at: new Date().toISOString(),
     queued_at: null,
   },
 ];

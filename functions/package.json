@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "functions-framework --target=processFeeds",
-    "dev": "functions-framework --target=processFeeds --port=8080"
+    "dev": "functions-framework --target=fetchFeeds --port=8080"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.5.0",

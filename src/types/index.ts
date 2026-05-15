@@ -5,11 +5,13 @@ export interface Article {
   id: string;
   title: string;
   url: string;
+  source?: string; // RSS feed title
   description: string; // Original RSS snippet
   group: string;
   category: ArticleCategory;
   status: ArticleStatus;
   published_at: string; // ISO string
+  triaged_at: string | null; // ISO string
   queued_at: string | null; // ISO string
 }
 
