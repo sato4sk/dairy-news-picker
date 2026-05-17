@@ -10,7 +10,14 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, onTriage }: ArticleCardProps) {
-  const isTriaged = article.status !== 'in_feed';
+  // Logic for determining if an article has already been triaged.
+  // 1. AI Ignored articles (category is 'ignore'):
+  //    Considered "untriaged" on the Ignored page so user can rescue them.
+  //    Triaged if status moves away from 'done'.
+  // 2. Normal articles: triaged if status is not 'in_feed'.
+  const isTriaged = article.category === 'ignore' 
+    ? article.status !== 'done' 
+    : article.status !== 'in_feed';
 
   return (
     <Card className={`flex flex-row h-full overflow-hidden transition-all duration-300 border-slate-200 p-0 gap-0 ${
@@ -66,7 +73,7 @@ export function ArticleCard({ article, onTriage }: ArticleCardProps) {
         >
           <Library className="h-5 w-5" />
         </button>
-        {article.status === 'done' && (
+        {isTriaged && (
           <div className="absolute inset-y-0 right-0 w-12 flex items-center justify-center bg-slate-200/50 text-slate-600">
             <Check className="h-6 w-6" />
           </div>
