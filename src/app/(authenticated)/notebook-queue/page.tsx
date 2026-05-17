@@ -33,8 +33,28 @@ export default function NotebookQueuePage() {
   const urlsText = articles.map(a => a.url).join('\n');
 
   const handleCopy = async () => {
-    if (urlsText) {
-      await navigator.clipboard.writeText(urlsText);
+    const copyText = articles.map(a => a.url).join(' ');
+    if (copyText) {
+      try {
+        await navigator.clipboard.writeText(copyText);
+      } catch (err) {
+        console.error('Clipboard API failed, using fallback:', err);
+        const textArea = document.createElement("textarea");
+        textArea.value = copyText;
+        // Ensure the textarea is not visible but part of the DOM
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (copyErr) {
+          console.error('Fallback copy failed:', copyErr);
+        }
+        document.body.removeChild(textArea);
+      }
       setCopied(true);
       toast.success('URLs copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
