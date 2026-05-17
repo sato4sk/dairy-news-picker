@@ -1,4 +1,4 @@
-export type ArticleCategory = 'core' | 'related' | 'random';
+export type ArticleCategory = 'core' | 'related' | 'random' | 'ignore';
 export type ArticleStatus = 'raw' | 'in_feed' | 'to_read' | 'to_notebook' | 'done';
 
 export interface Article {

@@ -146,7 +146,7 @@ const triageArticles = async (req, res) => {
 
           stats[p.category]++;
           const updateData = {
-            category: p.category === 'ignore' ? null : p.category,
+            category: p.category,
             is_triaged: true,
             status: p.category === 'ignore' ? 'done' : 'in_feed',
             triaged_at: triagedAt,

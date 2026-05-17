@@ -11,18 +11,22 @@ const SUMMARIES_COLLECTION = 'daily_summaries';
  * Helper to get JST date range in UTC
  */
 function getJSTDayRange(date: Date) {
-  // If 'date' is passed from client (JST 00:00), it's already subHours(jst00, 9) in UTC.
-  // To be safe and environment-independent, we normalize to JST "logical day".
-  const jstDate = addHours(date, 9);
+  // Normalize input date to JST noon to safely get the YYYY-MM-DD in JST
+  // Regardless of whether 'date' is JST midnight or UTC midnight.
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(date.getTime() + jstOffset);
+  
   const y = jstDate.getUTCFullYear();
   const m = jstDate.getUTCMonth();
   const d = jstDate.getUTCDate();
 
-  // startJST is 00:00:00 JST
-  const startUTC = subHours(new Date(Date.UTC(y, m, d, 0, 0, 0)), 9);
-  const endUTC = addHours(startUTC, 24);
+  const jstString = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-  return { startUTC, endUTC, jstString: format(jstDate, 'yyyy-MM-dd') };
+  // startUTC is 00:00:00 JST for that logical day
+  const startUTC = new Date(Date.UTC(y, m, d, 0, 0, 0) - jstOffset);
+  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
+
+  return { startUTC, endUTC, jstString };
 }
 
 export async function getArticlesByDate(date: Date, groupId: string): Promise<Article[]> {
@@ -61,6 +65,25 @@ export async function getArticlesByDate(date: Date, groupId: string): Promise<Ar
     .get();
   
   return fallbackSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Article[];
+}
+
+export async function getIgnoredArticlesByDate(date: Date, groupId: string): Promise<Article[]> {
+  const { startUTC, endUTC } = getJSTDayRange(date);
+
+  const snapshot = await adminDb
+    .collection(ARTICLES_COLLECTION)
+    .where('group', '==', groupId)
+    .where('status', '==', 'done')
+    .where('category', '==', 'ignore')
+    .where('triaged_at', '>=', startUTC.toISOString())
+    .where('triaged_at', '<', endUTC.toISOString())
+    .orderBy('triaged_at', 'desc')
+    .get();
+
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Article[];

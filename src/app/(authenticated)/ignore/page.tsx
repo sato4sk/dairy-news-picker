@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FEED_GROUPS } from '@/config/feeds';
-import { Article, ArticleStatus, ArticleCategory, DailySummary } from '@/types';
+import { Article, ArticleStatus } from '@/types';
 import { ArticleCard } from '@/components/article-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -16,14 +15,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { getArticlesByDate, updateArticleStatus, getDailySummary } from '@/lib/db-actions';
+import { getIgnoredArticlesByDate, updateArticleStatus } from '@/lib/db-actions';
 
-const VISIBLE_CATEGORIES = ['core', 'related', 'random'] as const satisfies readonly ArticleCategory[];
-type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
-
-export default function TriagePage() {
+export default function IgnoredArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [summary, setSummary] = useState<DailySummary | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string>(FEED_GROUPS[0].id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
@@ -31,15 +26,11 @@ export default function TriagePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fetchedArticles, fetchedSummary] = await Promise.all([
-        getArticlesByDate(selectedDate, selectedGroup),
-        getDailySummary(selectedDate, selectedGroup),
-      ]);
+      const fetchedArticles = await getIgnoredArticlesByDate(selectedDate, selectedGroup);
       setArticles(fetchedArticles);
-      setSummary(fetchedSummary);
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('Failed to load articles from database.');
+      toast.error('Failed to load ignored articles.');
     } finally {
       setLoading(false);
     }
@@ -50,31 +41,18 @@ export default function TriagePage() {
   }, [fetchData]);
 
   const handleTriage = async (id: string, newStatus: ArticleStatus) => {
-    // Optimistic UI update: Update status in place to avoid layout shift
-    const previousArticles = [...articles];
-    setArticles((prev) => 
-      prev.map((a) => a.id === id ? { ...a, status: newStatus } : a)
-    );
-
+    // Note: Ignored articles are already 'done', so ArticleCard will show them as triaged.
+    // If we want to allow re-triaging, we'd need to change status to 'in_feed' first or modify ArticleCard.
+    // For now, we follow the mirror UI.
     try {
       await updateArticleStatus(id, newStatus);
       toast.success(`Article moved to ${newStatus}`);
+      // Refresh to reflect changes if necessary
+      fetchData();
     } catch (error) {
-      // Revert on failure
-      setArticles(previousArticles);
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status in database.');
+      toast.error('Failed to update status.');
     }
-  };
-
-  // We now show articles that are 'in_feed' OR were just triaged to 'to_read'/'to_notebook'/'done'
-  // to keep them visible for feedback.
-  const filteredArticles = articles;
-
-  const categorizedArticles: Record<VisibleCategory, Article[]> = {
-    core: filteredArticles.filter((a) => a.category === 'core'),
-    related: filteredArticles.filter((a) => a.category === 'related'),
-    random: filteredArticles.filter((a) => a.category === 'random'),
   };
 
   const changeDate = (days: number) => {
@@ -88,8 +66,8 @@ export default function TriagePage() {
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Morning Triage</h2>
-            <p className="text-slate-500">Review and categorize today&apos;s news.</p>
+            <h2 className="text-3xl font-bold tracking-tight">Ignored (AI)</h2>
+            <p className="text-slate-500">Review articles that were filtered out by AI.</p>
           </div>
           
           <div className="flex items-center gap-2">
@@ -153,51 +131,35 @@ export default function TriagePage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="text-slate-500 font-medium">Fetching news articles...</p>
+          <p className="text-slate-500 font-medium">Fetching ignored articles...</p>
         </div>
       ) : (
-        <>
-          <section className="rounded-2xl border bg-white p-6 shadow-sm md:p-8 selection-enabled">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs text-blue-700">AI</span>
-              Today&apos;s Summary
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
+              Ignored Articles
+              <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                {articles.length}
+              </span>
             </h3>
-            <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
-              {summary?.content || "No summary available for this date and group."}
-            </p>
-          </section>
-
-          <div className="space-y-10">
-            {VISIBLE_CATEGORIES.map((category) => (
-              <section key={category} className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
-                    {category}
-                    <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {categorizedArticles[category].length}
-                    </span>
-                  </h3>
-                </div>
-
-                {categorizedArticles[category].length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
-                    {categorizedArticles[category].map((article) => (
-                      <ArticleCard
-                        key={article.id}
-                        article={article}
-                        onTriage={handleTriage}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                    <p className="text-slate-400 font-medium">No articles in {category}.</p>
-                  </div>
-                )}
-              </section>
-            ))}
           </div>
-        </>
+
+          {articles.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+              {articles.map((article) => (
+                <ArticleCard
+                  key={article.id}
+                  article={article}
+                  onTriage={handleTriage}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-2xl bg-slate-50">
+              <p className="text-slate-400 font-medium">No ignored articles for this date and group.</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
