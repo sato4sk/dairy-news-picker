@@ -33,31 +33,48 @@ export default function NotebookQueuePage() {
   const urlsText = articles.map(a => a.url).join('\n');
 
   const handleCopy = async () => {
-    const copyText = articles.map(a => a.url).join(' ');
-    if (copyText) {
+    if (urlsText) {
+      // Use the older execCommand('copy') method as the primary way for iOS compatibility.
+      // iOS Safari's navigator.clipboard.writeText has a bug where it auto-encodes 
+      // URLs (replacing newlines with %0A, spaces with %20) when pasted into certain inputs.
+      const textArea = document.createElement("textarea");
+      textArea.value = urlsText;
+      
+      // Ensure the textarea is part of the DOM and focused but not visible
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      let successful = false;
       try {
-        await navigator.clipboard.writeText(copyText);
+        successful = document.execCommand('copy');
       } catch (err) {
-        console.error('Clipboard API failed, using fallback:', err);
-        const textArea = document.createElement("textarea");
-        textArea.value = copyText;
-        // Ensure the textarea is not visible but part of the DOM
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-          document.execCommand('copy');
-        } catch (copyErr) {
-          console.error('Fallback copy failed:', copyErr);
-        }
-        document.body.removeChild(textArea);
+        console.error('execCommand copy failed:', err);
       }
-      setCopied(true);
-      toast.success('URLs copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
+      
+      document.body.removeChild(textArea);
+
+      // If execCommand failed, fallback to the modern Clipboard API
+      if (!successful) {
+        try {
+          await navigator.clipboard.writeText(urlsText);
+          successful = true;
+        } catch (err) {
+          console.error('Final fallback copy failed:', err);
+        }
+      }
+
+      if (successful) {
+        setCopied(true);
+        toast.success('URLs copied to clipboard');
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        toast.error('Failed to copy URLs');
+      }
     }
   };
 
