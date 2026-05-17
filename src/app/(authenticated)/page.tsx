@@ -18,6 +18,9 @@ import {
 } from '@/components/ui/popover';
 import { getArticlesByDate, updateArticleStatus, getDailySummary } from '@/lib/db-actions';
 
+const VISIBLE_CATEGORIES = ['core', 'related', 'random'] as const satisfies readonly ArticleCategory[];
+type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
+
 export default function TriagePage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
@@ -68,7 +71,7 @@ export default function TriagePage() {
   // to keep them visible for feedback.
   const filteredArticles = articles;
 
-  const categorizedArticles: Record<ArticleCategory, Article[]> = {
+  const categorizedArticles: Record<VisibleCategory, Article[]> = {
     core: filteredArticles.filter((a) => a.category === 'core'),
     related: filteredArticles.filter((a) => a.category === 'related'),
     random: filteredArticles.filter((a) => a.category === 'random'),
@@ -165,7 +168,7 @@ export default function TriagePage() {
           </section>
 
           <div className="space-y-10">
-            {(['core', 'related', 'random'] as const).map((category) => (
+            {VISIBLE_CATEGORIES.map((category) => (
               <section key={category} className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
