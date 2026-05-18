@@ -23,10 +23,17 @@
 
 ## 開発ワークフロー
 
+### ブランチ戦略
+- **機能開発・バグ修正**: 必ず新しいフィーチャーブランチ（例: `feat/issue-<num>-<description>`）を作成して作業を行います。
+- **メインブランチへの直接 push 禁止**: `main` ブランチへの直接コミットや push は行わず、必ず Pull Request (PR) を経由します。
+
 ### プルリクエスト (Pull Requests)
 プルリクエストの作成には GitHub CLI (`gh`) を使用することを標準手順とします。
-1. ブランチを push する: `git push -u origin <branch-name>`
-2. PR を作成する: `gh pr create --title "<title>" --body "<body>"`
+1. 新しいブランチを作成する: `git checkout -b <branch-name>`
+2. 変更を commit する: `git add . && git commit -m "<message>"`
+3. ブランチを push する: `git push -u origin <branch-name>`
+4. PR を作成する: `gh pr create --title "<title>" --body "<body>"` (または `--body-file`)
+5. マージ後のブランチ管理: PR がマージされたら、ローカルブランチを削除し、最新の `main` を pull します。
 
 ### バックエンド処理 (GCP Cloud Functions)
 - **並列化**: フィードの取得はグループ単位で並列実行されます。
