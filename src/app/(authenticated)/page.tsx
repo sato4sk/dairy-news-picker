@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FEED_GROUPS } from '@/config/feeds';
-import { Article, ArticleStatus, ArticleCategory, DailySummary } from '@/types';
+import { Article, ArticleStatus, ArticleCategory, DailySummary, FeedGroup } from '@/types';
 import { ArticleCard } from '@/components/article-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -16,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { getArticlesByDate, updateArticleStatus, getDailySummary } from '@/lib/db-actions';
+import { getArticlesByDate, updateArticleStatus, getDailySummary, getFeedGroups } from '@/lib/db-actions';
 
 const VISIBLE_CATEGORIES = ['core', 'related', 'random'] as const satisfies readonly ArticleCategory[];
 type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
@@ -24,11 +23,29 @@ type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
 export default function TriagePage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<string>(FEED_GROUPS[0].id);
+  const [groups, setGroups] = useState<FeedGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    async function initGroups() {
+      try {
+        const fetchedGroups = await getFeedGroups();
+        setGroups(fetchedGroups);
+        if (fetchedGroups.length > 0) {
+          setSelectedGroup(fetchedGroups[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load groups:', error);
+        toast.error('Failed to load feed groups');
+      }
+    }
+    initGroups();
+  }, []);
+
   const fetchData = useCallback(async () => {
+    if (!selectedGroup) return;
     setLoading(true);
     try {
       const [fetchedArticles, fetchedSummary] = await Promise.all([
@@ -134,7 +151,7 @@ export default function TriagePage() {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
-          {FEED_GROUPS.map((group) => (
+          {groups.map((group) => (
             <button
               key={group.id}
               onClick={() => setSelectedGroup(group.id)}

@@ -1,11 +1,53 @@
 'use server';
 
 import { adminDb } from './firebase-admin';
-import { Article, ArticleStatus, DailySummary } from '@/types';
+import { Article, ArticleStatus, DailySummary, FeedGroup } from '@/types';
 import { addHours, subHours, format } from 'date-fns';
 
 const ARTICLES_COLLECTION = 'articles';
 const SUMMARIES_COLLECTION = 'daily_summaries';
+const FEED_GROUPS_COLLECTION = 'feed_groups';
+
+/**
+ * Sanitizes Firestore data by converting Timestamps to ISO strings.
+ * This is required to pass data from Server Actions to Client Components.
+ */
+function sanitizeFirestoreData(data: any) {
+  if (!data) return data;
+  const sanitized = { ...data };
+  for (const key in sanitized) {
+    if (sanitized[key] && typeof sanitized[key].toDate === 'function') {
+      sanitized[key] = sanitized[key].toDate().toISOString();
+    }
+  }
+  return sanitized;
+}
+
+/**
+ * Feed Group Actions
+ */
+export async function getFeedGroups(): Promise<FeedGroup[]> {
+  const snapshot = await adminDb
+    .collection(FEED_GROUPS_COLLECTION)
+    .get();
+  
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...sanitizeFirestoreData(doc.data()),
+  })) as FeedGroup[];
+}
+
+export async function saveFeedGroup(group: FeedGroup) {
+  const { id, ...data } = group;
+  await adminDb.collection(FEED_GROUPS_COLLECTION).doc(id).set({
+    ...data,
+    updated_at: new Date().toISOString(),
+  }, { merge: true });
+}
+
+export async function deleteFeedGroup(id: string) {
+  await adminDb.collection(FEED_GROUPS_COLLECTION).doc(id).delete();
+}
 
 /**
  * Helper to get JST date range in UTC
