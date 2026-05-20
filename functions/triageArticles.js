@@ -17,6 +17,11 @@ const MODELS = [
   "gemini-2.5-flash-lite"
 ];
 
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const classificationSchema = {
   type: "object",
   properties: {
@@ -44,36 +49,59 @@ const summarySchema = {
 };
 
 /**
- * Utility for Gemini calls with model fallback
+ * Utility for Gemini calls with model fallback and retry logic
  */
 async function callGemini(prompt, schema, modelIndex) {
   let idx = modelIndex;
   while (idx < MODELS.length) {
-    const startTime = Date.now();
-    try {
-      const response = await ai.models.generateContent({
-        model: MODELS[idx],
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: schema,
-        }
-      });
-      const duration = Date.now() - startTime;
-      console.log(`Gemini Call Success: Model=${MODELS[idx]}, Duration=${duration}ms`);
-      return { result: JSON.parse(response.text), nextIndex: idx };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.warn(`Gemini Call Failed: Model=${MODELS[idx]}, Duration=${duration}ms`);
-      const isRateLimit = error.status === 429 || 
-                         (error.response && error.response.status === 429) || 
-                         error.message?.includes('429');
+    let retryCount = 0;
+    while (retryCount <= MAX_RETRIES) {
+      const startTime = Date.now();
+      try {
+        const response = await ai.models.generateContent({
+          model: MODELS[idx],
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          }
+        });
+        const duration = Date.now() - startTime;
+        console.log(`Gemini Call Success: Model=${MODELS[idx]}, Duration=${duration}ms`);
+        return { result: JSON.parse(response.text), nextIndex: idx };
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        const status = error.status || error.response?.status;
+        const isRateLimit = status === 429 || 
+                           (error.response && error.response.status === 429) || 
+                           error.message?.includes('429');
+        const isServerError = (status >= 500 && status < 600) || 
+                             error.message?.includes('500') || 
+                             error.message?.includes('503');
 
-      if (isRateLimit) {
-        console.warn(`Rate limit (429) hit with ${MODELS[idx]}.`);
-        idx++;
-      } else {
-        throw error;
+        console.warn(`Gemini Call Failed: Model=${MODELS[idx]}, Status=${status}, Duration=${duration}ms, Error=${error.message}`);
+
+        if (isRateLimit) {
+          console.warn(`Rate limit (429) hit with ${MODELS[idx]}. Switching to next model immediately.`);
+          idx++;
+          break; // Exit retry loop to switch model
+        } else if (isServerError) {
+          if (retryCount < MAX_RETRIES) {
+            const backoff = INITIAL_BACKOFF_MS * Math.pow(2, retryCount);
+            console.warn(`Server error (${status}) with ${MODELS[idx]}. Retrying in ${backoff}ms... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            await sleep(backoff);
+            retryCount++;
+            continue; // Retry with same model
+          } else {
+            console.warn(`Max retries reached for ${MODELS[idx]} on server error. Switching to next model.`);
+            idx++;
+            break; // Exit retry loop to switch model
+          }
+        } else {
+          // For other errors (e.g., 400), log and throw to avoid infinite loops or wrong assumptions
+          console.error(`Fatal Gemini Error: ${error.message}`);
+          throw error;
+        }
       }
     }
   }
