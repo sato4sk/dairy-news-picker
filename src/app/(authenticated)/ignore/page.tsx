@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FEED_GROUPS } from '@/config/feeds';
-import { Article, ArticleStatus } from '@/types';
+import { Article, ArticleStatus, FeedGroup } from '@/types';
 import { ArticleCard } from '@/components/article-card';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -15,15 +14,33 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { getIgnoredArticlesByDate, updateArticleStatus } from '@/lib/db-actions';
+import { getIgnoredArticlesByDate, updateArticleStatus, getFeedGroups } from '@/lib/db-actions';
 
 export default function IgnoredArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string>(FEED_GROUPS[0].id);
+  const [groups, setGroups] = useState<FeedGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    async function initGroups() {
+      try {
+        const fetchedGroups = await getFeedGroups();
+        setGroups(fetchedGroups);
+        if (fetchedGroups.length > 0) {
+          setSelectedGroup(fetchedGroups[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load groups:', error);
+        toast.error('Failed to load feed groups');
+      }
+    }
+    initGroups();
+  }, []);
+
   const fetchData = useCallback(async () => {
+    if (!selectedGroup) return;
     setLoading(true);
     try {
       const fetchedArticles = await getIgnoredArticlesByDate(selectedDate, selectedGroup);
@@ -112,7 +129,7 @@ export default function IgnoredArticlesPage() {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
-          {FEED_GROUPS.map((group) => (
+          {groups.map((group) => (
             <button
               key={group.id}
               onClick={() => setSelectedGroup(group.id)}

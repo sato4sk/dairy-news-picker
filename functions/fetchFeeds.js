@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 const Parser = require('rss-parser');
 const crypto = require('crypto');
-const { FEED_GROUPS } = require('./config');
 
 // Initialize Admin SDK if not already
 if (!admin.apps.length) {
@@ -15,7 +14,16 @@ const parser = new Parser();
  */
 const fetchFeeds = async (req, res) => {
   try {
-    const results = await Promise.all(FEED_GROUPS.map(async (group) => {
+    // Fetch feed groups from Firestore
+    const groupsSnapshot = await db.collection('feed_groups').get();
+    const feedGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (feedGroups.length === 0) {
+      console.log('No feed groups found in Firestore.');
+      return res.status(200).send('No feed groups to process.');
+    }
+
+    const results = await Promise.all(feedGroups.map(async (group) => {
       console.log(`Fetching group: ${group.name}`);
       const feedResults = await Promise.all(group.feeds.map(url => parser.parseURL(url).catch(e => {
         console.error(`Error fetching ${url}:`, e);
