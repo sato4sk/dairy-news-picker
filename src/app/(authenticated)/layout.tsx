@@ -1,4 +1,5 @@
 import { Navigation } from '@/components/navigation';
+import { ScrollToTop } from '@/components/scroll-to-top';
 
 export default function AuthenticatedLayout({
   children,
@@ -29,6 +30,7 @@ export default function AuthenticatedLayout({
       <div className="md:hidden">
         <Navigation />
       </div>
+      <ScrollToTop />
     </div>
   );
 }
