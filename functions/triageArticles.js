@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 const { GoogleGenAI } = require("@google/genai");
 const { format, addHours } = require('date-fns');
-const { FEED_GROUPS } = require('./config');
 
 // Initialize Admin SDK
 if (!admin.apps.length) {
@@ -126,7 +125,16 @@ const triageArticles = async (req, res) => {
 
     console.log(`Starting triage at UTC: ${triagedAt} (JST: ${today})`);
 
-    for (const groupConfig of FEED_GROUPS) {
+    // Fetch feed groups from Firestore
+    const groupsSnapshot = await db.collection('feed_groups').get();
+    const feedGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (feedGroups.length === 0) {
+      console.log('No feed groups found in Firestore.');
+      return res.status(200).send('No feed groups to triage.');
+    }
+
+    for (const groupConfig of feedGroups) {
       const groupId = groupConfig.id;
       const snapshot = await db.collection('articles')
         .where('group', '==', groupId)
