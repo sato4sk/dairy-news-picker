@@ -3,13 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Inbox, BookOpen, Library, EyeOff, Settings } from 'lucide-react';
+import { Inbox, BookOpen, Library, Settings } from 'lucide-react';
 
 const navItems = [
   { name: 'Triage', href: '/', icon: Inbox },
   { name: 'Read Later', href: '/read-later', icon: BookOpen },
   { name: 'NotebookLM', href: '/notebook-queue', icon: Library },
-  { name: 'Ignored (AI)', href: '/ignore', icon: EyeOff },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
