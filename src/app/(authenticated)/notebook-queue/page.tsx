@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Article } from '@/types';
+import { Article, ArticleStatus } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, CheckCircle2, Loader2 } from 'lucide-react';
+import { Copy, Check, CheckCircle2, Loader2, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import { getNotebookQueue, batchUpdateStatus } from '@/lib/db-actions';
+import { getNotebookQueue, batchUpdateStatus, updateArticleStatus } from '@/lib/db-actions';
 
 export default function NotebookQueuePage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -27,7 +27,10 @@ export default function NotebookQueuePage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    async function load() {
+      await fetchData();
+    }
+    load();
   }, [fetchData]);
 
   const urlsText = articles.map(a => a.url).join('\n');
@@ -92,11 +95,11 @@ export default function NotebookQueuePage() {
     }
   };
 
-  const handleDone = async (id: string) => {
+  const handleUpdateStatus = async (id: string, newStatus: ArticleStatus) => {
     try {
-      await batchUpdateStatus([id], 'done');
+      await updateArticleStatus(id, newStatus);
       setArticles((prev) => prev.filter((a) => a.id !== id));
-      toast.success('Article marked as done');
+      toast.success(`Article moved to ${newStatus}`);
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error('Failed to update status.');
@@ -120,7 +123,7 @@ export default function NotebookQueuePage() {
           <Card className="overflow-hidden border border-blue-100 shadow-sm">
             <div className="flex items-center justify-between bg-blue-50/30 px-3 py-2 border-b">
               <span className="text-sm font-bold text-blue-900">
-                Batch URLs ({articles.length})
+                Batch URLs
               </span>
               <div className="flex items-center gap-2">
                 <Button 
@@ -184,15 +187,26 @@ export default function NotebookQueuePage() {
                       </span>
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors border border-slate-100"
-                    onClick={() => handleDone(article.id)}
-                    title="Mark as Done"
-                  >
-                    <Check className="h-5 w-5" />
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100"
+                      onClick={() => handleUpdateStatus(article.id, 'to_read')}
+                      title="Move to Read Later"
+                    >
+                      <BookOpen className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors border border-slate-100"
+                      onClick={() => handleUpdateStatus(article.id, 'done')}
+                      title="Mark as Done"
+                    >
+                      <Check className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -2,7 +2,6 @@
 
 import { adminDb } from './firebase-admin';
 import { Article, ArticleStatus, DailySummary, FeedGroup } from '@/types';
-import { addHours, subHours, format } from 'date-fns';
 
 const ARTICLES_COLLECTION = 'articles';
 const SUMMARIES_COLLECTION = 'daily_summaries';
@@ -75,11 +74,11 @@ export async function getArticlesByDate(date: Date, groupId: string): Promise<Ar
   const { startUTC, endUTC } = getJSTDayRange(date);
 
   try {
-    // Try fetching by triaged_at (new logic)
+    // Fetch articles triaged within the range with status 'in_feed' or 'done'
     const snapshot = await adminDb
       .collection(ARTICLES_COLLECTION)
       .where('group', '==', groupId)
-      .where('status', '==', 'in_feed')
+      .where('status', 'in', ['in_feed', 'done'])
       .where('triaged_at', '>=', startUTC.toISOString())
       .where('triaged_at', '<', endUTC.toISOString())
       .orderBy('triaged_at', 'desc')
@@ -100,32 +99,12 @@ export async function getArticlesByDate(date: Date, groupId: string): Promise<Ar
   const fallbackSnapshot = await adminDb
     .collection(ARTICLES_COLLECTION)
     .where('group', '==', groupId)
-    .where('status', '==', 'in_feed')
     .where('published_at', '>=', startUTC.toISOString())
     .where('published_at', '<', endUTC.toISOString())
     .orderBy('published_at', 'desc')
     .get();
   
   return fallbackSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Article[];
-}
-
-export async function getIgnoredArticlesByDate(date: Date, groupId: string): Promise<Article[]> {
-  const { startUTC, endUTC } = getJSTDayRange(date);
-
-  const snapshot = await adminDb
-    .collection(ARTICLES_COLLECTION)
-    .where('group', '==', groupId)
-    .where('status', '==', 'done')
-    .where('category', '==', 'ignore')
-    .where('triaged_at', '>=', startUTC.toISOString())
-    .where('triaged_at', '<', endUTC.toISOString())
-    .orderBy('triaged_at', 'desc')
-    .get();
-
-  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Article[];

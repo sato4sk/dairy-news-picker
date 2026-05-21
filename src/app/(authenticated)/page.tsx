@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Article, ArticleStatus, ArticleCategory, DailySummary, FeedGroup } from '@/types';
 import { ArticleCard } from '@/components/article-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -15,9 +14,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { getArticlesByDate, updateArticleStatus, getDailySummary, getFeedGroups } from '@/lib/db-actions';
+import { getArticlesByDate, updateArticleStatus, getDailySummary, getFeedGroups, batchUpdateStatus } from '@/lib/db-actions';
 
-const VISIBLE_CATEGORIES = ['core', 'related', 'random'] as const satisfies readonly ArticleCategory[];
+const VISIBLE_CATEGORIES = ['core', 'related', 'random', 'ignore'] as const satisfies readonly ArticleCategory[];
 type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
 
 export default function TriagePage() {
@@ -27,6 +26,9 @@ export default function TriagePage() {
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({
+    ignore: true,
+  });
 
   useEffect(() => {
     async function initGroups() {
@@ -44,27 +46,26 @@ export default function TriagePage() {
     initGroups();
   }, []);
 
-  const fetchData = useCallback(async () => {
-    if (!selectedGroup) return;
-    setLoading(true);
-    try {
-      const [fetchedArticles, fetchedSummary] = await Promise.all([
-        getArticlesByDate(selectedDate, selectedGroup),
-        getDailySummary(selectedDate, selectedGroup),
-      ]);
-      setArticles(fetchedArticles);
-      setSummary(fetchedSummary);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast.error('Failed to load articles from database.');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate, selectedGroup]);
-
   useEffect(() => {
+    async function fetchData() {
+      if (!selectedGroup) return;
+      setLoading(true);
+      try {
+        const [fetchedArticles, fetchedSummary] = await Promise.all([
+          getArticlesByDate(selectedDate, selectedGroup),
+          getDailySummary(selectedDate, selectedGroup),
+        ]);
+        setArticles(fetchedArticles);
+        setSummary(fetchedSummary);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load articles from database.');
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchData();
-  }, [fetchData]);
+  }, [selectedDate, selectedGroup]);
 
   const handleTriage = async (id: string, newStatus: ArticleStatus) => {
     // Optimistic UI update: Update status in place to avoid layout shift
@@ -84,14 +85,43 @@ export default function TriagePage() {
     }
   };
 
-  // We now show articles that are 'in_feed' OR were just triaged to 'to_read'/'to_notebook'/'done'
-  // to keep them visible for feedback.
-  const filteredArticles = articles;
+  const handleMarkAllAsDone = async () => {
+    const untriagedArticles = articles.filter(
+      (a) => a.status === 'in_feed'
+    );
+    
+    if (untriagedArticles.length === 0) return;
+
+    const ids = untriagedArticles.map((a) => a.id);
+    const previousArticles = [...articles];
+    
+    // Optimistic UI update
+    setArticles((prev) =>
+      prev.map((a) => ids.includes(a.id) ? { ...a, status: 'done' } : a)
+    );
+
+    try {
+      await batchUpdateStatus(ids, 'done');
+      toast.success(`${ids.length} articles marked as done`);
+    } catch (error) {
+      setArticles(previousArticles);
+      console.error('Failed to mark all as done:', error);
+      toast.error('Failed to update articles.');
+    }
+  };
 
   const categorizedArticles: Record<VisibleCategory, Article[]> = {
-    core: filteredArticles.filter((a) => a.category === 'core'),
-    related: filteredArticles.filter((a) => a.category === 'related'),
-    random: filteredArticles.filter((a) => a.category === 'random'),
+    core: articles.filter((a) => a.category === 'core'),
+    related: articles.filter((a) => a.category === 'related'),
+    random: articles.filter((a) => a.category === 'random'),
+    ignore: articles.filter((a) => a.category === 'ignore'),
+  };
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
   };
 
   const changeDate = (days: number) => {
@@ -101,14 +131,16 @@ export default function TriagePage() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-4">
+    <div className="space-y-8 pb-20">
+      <header className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Morning Triage</h2>
             <p className="text-slate-500">Review and categorize today&apos;s news.</p>
           </div>
-          
+        </div>
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -120,7 +152,7 @@ export default function TriagePage() {
             </Button>
 
             <Popover>
-              <PopoverTrigger>
+              <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className="h-10 px-4 py-2 font-bold flex items-center gap-2 rounded-full border-2 border-blue-100 hover:border-blue-200"
@@ -148,22 +180,22 @@ export default function TriagePage() {
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
-          {groups.map((group) => (
-            <button
-              key={group.id}
-              onClick={() => setSelectedGroup(group.id)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                selectedGroup === group.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border'
-              }`}
-            >
-              {group.name}
-            </button>
-          ))}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+            {groups.map((group) => (
+              <button
+                key={group.id}
+                onClick={() => setSelectedGroup(group.id)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  selectedGroup === group.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border'
+                }`}
+              >
+                {group.name}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -185,34 +217,59 @@ export default function TriagePage() {
           </section>
 
           <div className="space-y-10">
-            {VISIBLE_CATEGORIES.map((category) => (
-              <section key={category} className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
-                    {category}
-                    <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {categorizedArticles[category].length}
-                    </span>
-                  </h3>
-                </div>
+            {VISIBLE_CATEGORIES.map((category) => {
+              const isCollapsed = collapsedCategories[category];
+              const inFeedCount = categorizedArticles[category].filter(a => a.status === 'in_feed').length;
+              return (
+                <section key={category} className="space-y-4">
+                  <button 
+                    onClick={() => toggleCategory(category)}
+                    className="flex w-full items-center justify-between border-b pb-2 text-left hover:opacity-70 transition-opacity"
+                  >
+                    <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
+                      {isCollapsed ? <ChevronRight className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+                      {category}
+                      {inFeedCount > 0 && (
+                        <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {inFeedCount}
+                        </span>
+                      )}
+                    </h3>
+                  </button>
 
-                {categorizedArticles[category].length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3">
-                    {categorizedArticles[category].map((article) => (
-                      <ArticleCard
-                        key={article.id}
-                        article={article}
-                        onTriage={handleTriage}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                    <p className="text-slate-400 font-medium">No articles in {category}.</p>
-                  </div>
-                )}
-              </section>
-            ))}
+                  {!isCollapsed && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                      {categorizedArticles[category].length > 0 ? (
+                        <div className="grid grid-cols-1 gap-3">
+                          {categorizedArticles[category].map((article) => (
+                            <ArticleCard
+                              key={article.id}
+                              article={article}
+                              onTriage={handleTriage}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
+                          <p className="text-slate-400 font-medium">No articles in {category}.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-center mt-12">
+            <Button
+              onClick={handleMarkAllAsDone}
+              size="lg"
+              className="rounded-full px-8 font-bold gap-2"
+            >
+              <Check className="h-5 w-5" />
+              Mark all as done
+            </Button>
           </div>
         </>
       )}

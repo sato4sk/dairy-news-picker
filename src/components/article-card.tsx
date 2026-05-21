@@ -2,7 +2,7 @@
 
 import { Article } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Library, Check } from 'lucide-react';
+import { BookOpen, Library } from 'lucide-react';
 
 interface ArticleCardProps {
   article: Article;
@@ -13,13 +13,10 @@ interface ArticleCardProps {
 
 export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedProp }: ArticleCardProps) {
   // Logic for determining if an article has already been triaged.
-  // 1. AI Ignored articles (category is 'ignore'):
-  //    Considered "untriaged" on the Ignored page so user can rescue them.
-  //    Triaged if status moves away from 'done'.
-  // 2. Normal articles: triaged if status is not 'in_feed'.
-  const isTriaged = isTriagedProp ?? (article.category === 'ignore' 
-    ? article.status !== 'done' 
-    : article.status !== 'in_feed');
+  // We consider it "triaged" if it's moved to a special queue (to_read, to_notebook).
+  // 'done' articles in the triage screen represent dismissed/already read articles,
+  // so they should also be grayed out to distinguish them from 'in_feed'.
+  const isTriaged = isTriagedProp ?? (article.status !== 'in_feed');
 
   return (
     <Card className={`group/card flex flex-row h-full overflow-hidden transition-all duration-300 border-slate-200 p-0 gap-0 ${
@@ -31,7 +28,7 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
             href={article.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className={`group/link transition-colors ${isTriaged ? 'pointer-events-none' : ''}`}
+            className="group/link transition-colors"
           >
             <CardTitle className={`text-base font-bold leading-tight transition-colors line-clamp-2 ${
               isTriaged ? 'text-slate-500' : 'group-hover/link:text-blue-600 text-slate-900'
@@ -63,7 +60,7 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
               }`}
               onClick={() => onTriage?.(article.id, 'to_read')}
               title="Read Later"
-              disabled={isTriaged}
+              disabled={isTriaged && article.status !== 'done'}
             >
               <BookOpen className="h-5 w-5" />
             </button>
@@ -75,16 +72,11 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
               }`}
               onClick={() => onTriage?.(article.id, 'to_notebook')}
               title="NotebookLM"
-              disabled={isTriaged}
+              disabled={isTriaged && article.status !== 'done'}
             >
               <Library className="h-5 w-5" />
             </button>
           </>
-        )}
-        {isTriaged && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-200/50 text-slate-600">
-            <Check className="h-6 w-6" />
-          </div>
         )}
       </div>
     </Card>
