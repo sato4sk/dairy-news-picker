@@ -21,6 +21,116 @@ const INITIAL_BACKOFF_MS = 1000;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * URL Normalization to help deduplication
+ */
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    // Remove common tracking parameters
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'rss'];
+    trackingParams.forEach(p => u.searchParams.delete(p));
+    
+    // Normalize host and path
+    return u.origin.toLowerCase() + u.pathname.replace(/\/$/, "").toLowerCase() + (u.search ? u.search : "");
+  } catch (e) {
+    return url.toLowerCase().replace(/\/$/, "");
+  }
+}
+
+/**
+ * Title Normalization to help deduplication
+ */
+function normalizeTitle(title) {
+  return title.toLowerCase().trim().replace(/[ \t\n\r]/g, "");
+}
+
+/**
+ * Deduplicate articles within a group
+ */
+async function deduplicateArticles(articles, db) {
+  const urlMap = new Map();
+  const titleMap = new Map();
+  const duplicates = [];
+  const uniqueArticles = [];
+
+  for (const article of articles) {
+    const normUrl = normalizeUrl(article.url);
+    const normTitle = normalizeTitle(article.title);
+    
+    let duplicateOf = null;
+    if (urlMap.has(normUrl)) {
+      duplicateOf = urlMap.get(normUrl);
+    } else if (titleMap.has(normTitle)) {
+      duplicateOf = titleMap.get(normTitle);
+    }
+
+    if (duplicateOf) {
+      duplicates.push({ article, originalId: duplicateOf.id });
+    } else {
+      urlMap.set(normUrl, article);
+      titleMap.set(normTitle, article);
+      uniqueArticles.push(article);
+    }
+  }
+
+  if (duplicates.length > 0) {
+    console.log(`Found ${duplicates.length} duplicate articles.`);
+    const batch = db.batch();
+    duplicates.forEach(({ article, originalId }) => {
+      batch.update(db.collection('articles').doc(article.id), {
+        status: 'done',
+        is_triaged: true,
+        category: 'duplicated', 
+        duplicate_of: originalId,
+        triaged_at: new Date().toISOString()
+      });
+    });
+    await batch.commit();
+  }
+
+  return uniqueArticles;
+}
+
+const BUILD_SUMMARY_PROMPT = (groupName, articles, suffix = '') => `
+    Generate a daily summary (朝の要約) in Japanese for the group "${groupName}"${suffix}.
+    Highlight key trends and important news from the following articles.
+    
+    Rules:
+    - Do NOT include any title like "【IT-News 本日の朝刊要約】".
+    - Summarize into 3-5 key points.
+    - Start each point on a NEW line.
+    - Do NOT add blank lines between points.
+    - Each point should start with a number (e.g., "1. ") or a bullet.
+    - Keep it concise and plain text.
+    
+    Articles:
+    ${articles.map(a => `- ${a.title}`).join("\n")}
+  `;
+
+/**
+ * Executes a Gemini call using a single fixed model (gemini-2.5-flash).
+ * Used for non-critical tasks like summarizing ignored articles where
+ * fallback logic is not required.
+ */
+async function callGeminiSingleModel(articles, groupName, ai, isIgnore = false) {
+  if (articles.length === 0) return null;
+
+  const prompt = BUILD_SUMMARY_PROMPT(groupName, articles, isIgnore ? ' (Low priority items)' : '');
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    
+    return response.text;
+  } catch (error) {
+    console.warn(`Failed to generate single-model summary for ${groupName} (isIgnore=${isIgnore}): ${error.message}`);
+    return null;
+  }
+}
+
 const classificationSchema = {
   type: "object",
   properties: {
@@ -150,12 +260,17 @@ const triageArticles = async (req, res) => {
       const articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log(`Triaging ${articles.length} articles for group: ${groupConfig.name}`);
 
+      // Deduplicate before processing
+      const uniqueArticles = await deduplicateArticles(articles, db);
+      console.log(`Group: ${groupConfig.name}, Unique Articles: ${uniqueArticles.length}/${articles.length}`);
+
       const CHUNK_SIZE = 100;
       const coreAndRelated = [];
+      const ignoredToSummarize = [];
       const stats = { core: 0, related: 0, random: 0, ignore: 0 };
 
-      for (let i = 0; i < articles.length; i += CHUNK_SIZE) {
-        const chunk = articles.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < uniqueArticles.length; i += CHUNK_SIZE) {
+        const chunk = uniqueArticles.slice(i, i + CHUNK_SIZE);
         const maxRandom = Math.max(1, Math.floor(chunk.length * 0.1));
 
         const prompt = `
@@ -192,6 +307,8 @@ const triageArticles = async (req, res) => {
 
           if (p.category === 'core' || p.category === 'related') {
             coreAndRelated.push(orig);
+          } else if (p.category === 'ignore') {
+            ignoredToSummarize.push(orig);
           }
         });
         await batch.commit();
@@ -199,32 +316,26 @@ const triageArticles = async (req, res) => {
 
       console.log(`[${groupConfig.name}] Stats: core=${stats.core}, related=${stats.related}, random=${stats.random}, ignore=${stats.ignore}`);
 
-      if (coreAndRelated.length > 0) {
-        const summaryPrompt = `
-          Generate a daily summary (朝の要約) in Japanese for the group "${groupConfig.name}".
-          Highlight key trends and important news from the following articles.
-          
-          Rules:
-          - Do NOT include any title like "【IT-News 本日の朝刊要約】".
-          - Summarize into 3-5 key points.
-          - Start each point on a NEW line.
-          - Do NOT add blank lines between points.
-          - Each point should start with a number (e.g., "1. ") or a bullet.
-          - Keep it concise and plain text.
-          
-          Articles:
-          ${coreAndRelated.map(a => `- ${a.title}`).join("\n")}
-        `;
+      // Generate summaries
+      const ignoreSummary = await callGeminiSingleModel(ignoredToSummarize, groupConfig.name, ai, true);
 
-        const { result: summaryResult, nextIndex: sIdx } = await callGemini(summaryPrompt, summarySchema, currentModelIndex);
-        currentModelIndex = sIdx;
+      if (coreAndRelated.length > 0 || ignoreSummary) {
+        let coreSummary = null;
+        if (coreAndRelated.length > 0) {
+          const prompt = BUILD_SUMMARY_PROMPT(groupConfig.name, coreAndRelated);
+
+          const { result: summaryResult, nextIndex: sIdx } = await callGemini(prompt, summarySchema, currentModelIndex);
+          currentModelIndex = sIdx;
+          coreSummary = summaryResult.dailySummary;
+        }
 
         const summaryId = `${today}_${groupId}`;
         await db.collection('daily_summaries').doc(summaryId).set({
           id: summaryId,
           group: groupId,
-          content: summaryResult.dailySummary,
-        });
+          content: coreSummary || "No primary news summary available.",
+          ignore_content: ignoreSummary,
+        }, { merge: true });
       }
     }
 

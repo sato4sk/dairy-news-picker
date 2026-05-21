@@ -235,7 +235,17 @@ export default function TriagePage() {
                   </button>
 
                   {!isCollapsed && (
-                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4">
+                      {category === 'ignore' && summary?.ignore_content && (
+                        <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] text-blue-700">AI</span>
+                            Ignore Summary
+                          </h4>
+                          {summary.ignore_content}
+                        </div>
+                      )}
+                      
                       {categorizedArticles[category].length > 0 ? (
                         <div className="grid grid-cols-1 gap-3">
                           {categorizedArticles[category].map((article) => (

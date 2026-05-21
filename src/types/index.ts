@@ -1,4 +1,4 @@
-export type ArticleCategory = 'core' | 'related' | 'random' | 'ignore';
+export type ArticleCategory = 'core' | 'related' | 'random' | 'ignore' | 'duplicated';
 export type ArticleStatus = 'raw' | 'in_feed' | 'to_read' | 'to_notebook' | 'done';
 
 export interface Article {
@@ -13,12 +13,14 @@ export interface Article {
   published_at: string; // ISO string
   triaged_at: string | null; // ISO string
   queued_at: string | null; // ISO string
+  ignore_summary?: string;
 }
 
 export interface DailySummary {
   id: string; // Date string 'YYYY-MM-DD'
   group: string;
   content: string;
+  ignore_content?: string;
 }
 
 export interface FeedGroup {
