@@ -32,8 +32,9 @@
 1. 新しいブランチを作成する: `git checkout -b <branch-name>`
 2. 変更を commit する: `git add . && git commit -m "<message>"`
 3. ブランチを push する: `git push -u origin <branch-name>`
-4. PR を作成する: `gh pr create --title "<title>" --body "<body>"` (または `--body-file`)
-5. マージ後のブランチ管理: PR がマージされたら、ローカルブランチを削除し、最新の `main` を pull します。
+4. ビルドチェックを行う: `npm run build` を実行し、エラーがないことを確認する
+5. PR を作成する: `gh pr create --title "<title>" --body "<body>"` (または `--body-file`)
+6. マージ後のブランチ管理: PR がマージされたら、ローカルブランチを削除し、最新の `main` を pull します。
 
 ### バックエンド処理 (GCP Cloud Functions)
 - **並列化**: フィードの取得はグループ単位で並列実行されます。

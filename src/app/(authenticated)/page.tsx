@@ -152,14 +152,11 @@ export default function TriagePage() {
             </Button>
 
             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-10 px-4 py-2 font-bold flex items-center gap-2 rounded-full border-2 border-blue-100 hover:border-blue-200"
-                >
-                  <CalendarIcon className="h-4 w-4 text-blue-600" />
-                  {format(selectedDate, 'yyyy年MM月dd日 (eee)', { locale: ja })}
-                </Button>
+              <PopoverTrigger
+                className="h-10 px-4 py-2 font-bold flex items-center gap-2 rounded-full border-2 border-blue-100 hover:border-blue-200 bg-white text-slate-800 transition-colors"
+              >
+                <CalendarIcon className="h-4 w-4 text-blue-600" />
+                {format(selectedDate, 'yyyy年MM月dd日 (eee)', { locale: ja })}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
