@@ -28,4 +28,5 @@ export interface FeedGroup {
   name: string;
   keywords: string[];
   feeds: string[];
+  order: number;
 }
