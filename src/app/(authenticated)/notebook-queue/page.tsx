@@ -20,7 +20,7 @@ export default function NotebookQueuePage() {
       setArticles(fetched);
     } catch (error) {
       console.error('Failed to fetch queue:', error);
-      toast.error('Failed to load queue.');
+      toast.error('キューの読み込みに失敗しました');
     } finally {
       setLoading(false);
     }
@@ -37,13 +37,9 @@ export default function NotebookQueuePage() {
 
   const handleCopy = async () => {
     if (urlsText) {
-      // Use the older execCommand('copy') method as the primary way for iOS compatibility.
-      // iOS (Safari/Chrome)'s navigator.clipboard.writeText has a bug where it auto-encodes 
-      // URLs (replacing newlines with %0A, spaces with %20) when pasted into certain inputs.
       const textArea = document.createElement("textarea");
       textArea.value = urlsText;
       
-      // Ensure the textarea is part of the DOM and focused but not visible
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
@@ -61,7 +57,6 @@ export default function NotebookQueuePage() {
       
       document.body.removeChild(textArea);
 
-      // If execCommand failed, fallback to the modern Clipboard API
       if (!successful) {
         try {
           await navigator.clipboard.writeText(urlsText);
@@ -73,10 +68,10 @@ export default function NotebookQueuePage() {
 
       if (successful) {
         setCopied(true);
-        toast.success('URLs copied to clipboard');
+        toast.success('URLをクリップボードにコピーしました');
         setTimeout(() => setCopied(false), 2000);
       } else {
-        toast.error('Failed to copy URLs');
+        toast.error('コピーに失敗しました');
       }
     }
   };
@@ -87,11 +82,11 @@ export default function NotebookQueuePage() {
 
     try {
       await batchUpdateStatus(ids, 'done');
-      toast.success(`${ids.length} articles marked as done`);
+      toast.success(`${ids.length}件の記事を完了にしました`);
       fetchData(); // Load next batch
     } catch (error) {
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status.');
+      toast.error('更新に失敗しました');
     }
   };
 
@@ -99,68 +94,61 @@ export default function NotebookQueuePage() {
     try {
       await updateArticleStatus(id, newStatus);
       setArticles((prev) => prev.filter((a) => a.id !== id));
-      toast.success(`Article moved to ${newStatus}`);
+      const statusLabel = newStatus === 'to_read' ? '「後で読む」' : '「完了」';
+      toast.success(`記事を${statusLabel}に移動しました`);
     } catch (error) {
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status.');
+      toast.error('ステータスの更新に失敗しました');
     }
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       <header>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">NotebookLM Queue</h2>
-        <p className="text-slate-500">Copy URLs to NotebookLM and mark as done.</p>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900">NotebookLM キュー</h2>
+        <p className="text-slate-500 text-sm font-medium">URLをNotebookLMにコピーして完了にします。</p>
       </header>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="text-slate-500 font-medium">Loading queue...</p>
+          <p className="text-slate-500 text-sm font-medium">読み込み中...</p>
         </div>
       ) : articles.length > 0 ? (
         <div className="space-y-4">
-          <Card className="overflow-hidden border border-blue-100 shadow-sm">
-            <div className="flex items-center justify-between bg-blue-50/30 px-3 py-2 border-b">
-              <span className="text-sm font-bold text-blue-900">
-                Batch URLs
+          <Card className="overflow-hidden border border-blue-100 shadow-sm bg-white py-0 gap-0">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="text-xs font-bold text-blue-900 uppercase tracking-tighter">
+                URLを一括コピー
               </span>
               <div className="flex items-center gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={handleCopy}
-                  className="h-7 px-2.5 gap-1.5 bg-white text-[11px] border-blue-200 hover:bg-blue-50"
+                  className="h-7 px-2.5 gap-1.5 bg-white text-[10px] font-bold border-blue-200 hover:bg-blue-50"
                 >
                   {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied ? 'Copied' : 'Copy All'}
+                  {copied ? 'コピー済み' : 'コピー'}
                 </Button>
                 <Button 
                   size="sm" 
-                  className="h-7 px-3 rounded-md text-[11px] font-bold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm"
+                  className="h-7 px-3 rounded-md text-[10px] font-bold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm"
                   onClick={handleDoneAndNext}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Done & Next
+                  完了
                 </Button>
               </div>
             </div>
-            <CardContent className="p-0">
-              <textarea
-                readOnly
-                className="w-full h-24 p-2 font-mono text-[11px] bg-slate-50/30 border-0 focus:ring-0 resize-none text-slate-600 leading-normal"
-                value={urlsText}
-              />
-            </CardContent>
+            <textarea
+              readOnly
+              className="w-full h-32 p-4 font-mono text-[10px] bg-slate-50/50 border-t border-blue-50 focus:outline-none resize-none text-slate-600 leading-normal block"
+              value={urlsText}
+            />
           </Card>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-2 px-1 border-b pb-2">
-              <h3 className="text-xl font-bold text-slate-800">Articles in this batch</h3>
-              <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                {articles.length}
-              </span>
-            </div>
             <div className="grid gap-2">
               {articles.map((article) => (
                 <div 
@@ -174,15 +162,15 @@ export default function NotebookQueuePage() {
                       rel="noopener noreferrer"
                       className="group/link block"
                     >
-                      <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover/link:text-blue-600 transition-colors">
+                      <h4 className="font-bold text-slate-900 text-[13px] leading-snug line-clamp-2 group-hover/link:text-blue-600 transition-colors">
                         {article.title}
                       </h4>
                     </a>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <div className="text-[9px] font-medium text-slate-400 uppercase tracking-tight leading-none shrink-0">
+                      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight leading-none shrink-0">
                         {article.source || 'News Source'}
                       </div>
-                      <span className="text-[10px] text-slate-400 truncate font-medium">
+                      <span className="text-[9px] text-slate-400 truncate font-medium">
                         {article.url}
                       </span>
                     </div>
@@ -191,20 +179,20 @@ export default function NotebookQueuePage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-10 w-10 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100"
+                      className="h-8 w-8 rounded-full bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100"
                       onClick={() => handleUpdateStatus(article.id, 'to_read')}
-                      title="Move to Read Later"
+                      title="後で読むに移動"
                     >
-                      <BookOpen className="h-5 w-5" />
+                      <BookOpen className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-10 w-10 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors border border-slate-100"
+                      className="h-8 w-8 rounded-full bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors border border-slate-100"
                       onClick={() => handleUpdateStatus(article.id, 'done')}
-                      title="Mark as Done"
+                      title="完了にする"
                     >
-                      <Check className="h-5 w-5" />
+                      <Check className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -214,8 +202,7 @@ export default function NotebookQueuePage() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-40 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-          <p className="text-slate-400 font-medium text-lg">No articles in the NotebookLM queue.</p>
-          <p className="text-slate-400 text-sm">Send some interesting articles here from Triage!</p>
+          <p className="text-slate-400 font-bold text-base tracking-tight uppercase">記事はありません</p>
         </div>
       )}
     </div>

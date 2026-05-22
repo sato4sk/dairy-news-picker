@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Dairy News Picker",
-  description: "Fast triage for daily RSS feeds",
+  description: "日々のRSSフィードを高速にトリアージ",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

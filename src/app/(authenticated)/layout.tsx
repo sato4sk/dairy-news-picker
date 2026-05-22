@@ -9,10 +9,10 @@ export default function AuthenticatedLayout({
   return (
     <div className="flex h-full min-h-screen w-full flex-col md:flex-row">
       {/* Sidebar for Desktop/iPad Landscape */}
-      <aside className="hidden w-64 flex-col border-r bg-white p-6 md:flex">
-        <div className="mb-8 flex items-center space-x-2">
-          <div className="h-8 w-8 rounded-lg bg-blue-600" />
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+      <aside className="hidden w-56 flex-col border-r bg-white p-5 md:flex">
+        <div className="mb-8 flex items-center space-x-2 px-1">
+          <div className="h-7 w-7 rounded-lg bg-blue-600" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">
             Dairy News
           </h1>
         </div>

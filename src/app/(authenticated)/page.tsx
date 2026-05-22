@@ -19,6 +19,20 @@ import { getArticlesByDate, updateArticleStatus, getDailySummary, getFeedGroups,
 const VISIBLE_CATEGORIES = ['core', 'related', 'random', 'ignore'] as const satisfies readonly ArticleCategory[];
 type VisibleCategory = (typeof VISIBLE_CATEGORIES)[number];
 
+const CATEGORY_LABELS: Record<VisibleCategory, string> = {
+  core: 'CORE',
+  related: 'RELATED',
+  random: 'RANDOM',
+  ignore: 'IGNORE',
+};
+
+const CATEGORY_DESCRIPTIONS: Record<VisibleCategory, string> = {
+  core: '自分の専門領域や強い興味がある重要な記事',
+  related: '周辺知識や関連性の高い役立つ記事',
+  random: '専門外だが興味深い、あるいは息抜きになる記事',
+  ignore: '興味の対象外、または重複しているため無視する記事',
+};
+
 export default function TriagePage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
@@ -40,7 +54,7 @@ export default function TriagePage() {
         }
       } catch (error) {
         console.error('Failed to load groups:', error);
-        toast.error('Failed to load feed groups');
+        toast.error('グループの読み込みに失敗しました');
       }
     }
     initGroups();
@@ -59,7 +73,7 @@ export default function TriagePage() {
         setSummary(fetchedSummary);
       } catch (error) {
         console.error('Failed to fetch data:', error);
-        toast.error('Failed to load articles from database.');
+        toast.error('データベースからの記事取得に失敗しました');
       } finally {
         setLoading(false);
       }
@@ -76,12 +90,13 @@ export default function TriagePage() {
 
     try {
       await updateArticleStatus(id, newStatus);
-      toast.success(`Article moved to ${newStatus}`);
+      const statusLabel = newStatus === 'to_read' ? '「後で読む」' : newStatus === 'to_notebook' ? '「NotebookLM」' : '「完了」';
+      toast.success(`記事を${statusLabel}に移動しました`);
     } catch (error) {
       // Revert on failure
       setArticles(previousArticles);
       console.error('Failed to update status:', error);
-      toast.error('Failed to update status in database.');
+      toast.error('ステータスの更新に失敗しました');
     }
   };
 
@@ -102,11 +117,11 @@ export default function TriagePage() {
 
     try {
       await batchUpdateStatus(ids, 'done');
-      toast.success(`${ids.length} articles marked as done`);
+      toast.success(`${ids.length}件の記事を完了にしました`);
     } catch (error) {
       setArticles(previousArticles);
       console.error('Failed to mark all as done:', error);
-      toast.error('Failed to update articles.');
+      toast.error('一括更新に失敗しました');
     }
   };
 
@@ -131,12 +146,12 @@ export default function TriagePage() {
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-6 pb-20">
       <header className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Morning Triage</h2>
-            <p className="text-slate-500">Review and categorize today&apos;s news.</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Article Triage</h2>
+            <p className="text-slate-500 text-sm font-medium">今日のニュースを確認して分類します。</p>
           </div>
         </div>
 
@@ -145,15 +160,15 @@ export default function TriagePage() {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-full"
+              className="h-9 w-9 rounded-full"
               onClick={() => changeDate(-1)}
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <Popover>
               <PopoverTrigger
-                className="h-10 px-4 py-2 font-bold flex items-center gap-2 rounded-full border-2 border-blue-100 hover:border-blue-200 bg-white text-slate-800 transition-colors"
+                className="h-9 px-4 py-2 font-bold flex items-center gap-2 rounded-full border-2 border-blue-100 hover:border-blue-200 bg-white text-slate-800 text-sm transition-colors"
               >
                 <CalendarIcon className="h-4 w-4 text-blue-600" />
                 {format(selectedDate, 'yyyy年MM月dd日 (eee)', { locale: ja })}
@@ -164,6 +179,7 @@ export default function TriagePage() {
                   selected={selectedDate}
                   onSelect={(date) => date && setSelectedDate(date)}
                   initialFocus
+                  locale={ja}
                 />
               </PopoverContent>
             </Popover>
@@ -171,10 +187,10 @@ export default function TriagePage() {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-full"
+              className="h-9 w-9 rounded-full"
               onClick={() => changeDate(1)}
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
@@ -183,10 +199,10 @@ export default function TriagePage() {
               <button
                 key={group.id}
                 onClick={() => setSelectedGroup(group.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
                   selectedGroup === group.id
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border'
+                    : 'bg-white text-slate-500 hover:bg-slate-100 border'
                 }`}
               >
                 {group.name}
@@ -199,21 +215,21 @@ export default function TriagePage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="text-slate-500 font-medium">Fetching news articles...</p>
+          <p className="text-slate-500 text-sm font-medium">記事を取得中...</p>
         </div>
       ) : (
         <>
-          <section className="rounded-2xl border bg-white p-6 shadow-sm md:p-8 selection-enabled">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs text-blue-700">AI</span>
-              Today&apos;s Summary
+          <section className="rounded-2xl border bg-white p-4 md:p-5 shadow-sm selection-enabled">
+            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-slate-900">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] text-blue-700">AI</span>
+              AI Summary
             </h3>
-            <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
-              {summary?.content || "No summary available for this date and group."}
+            <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-wrap">
+              {summary?.content || "この日付とグループの要約はありません。"}
             </p>
           </section>
 
-          <div className="space-y-10">
+          <div className="space-y-8">
             {VISIBLE_CATEGORIES.map((category) => {
               const isCollapsed = collapsedCategories[category];
               const inFeedCount = categorizedArticles[category].filter(a => a.status === 'in_feed').length;
@@ -222,12 +238,13 @@ export default function TriagePage() {
                   <button 
                     onClick={() => toggleCategory(category)}
                     className="flex w-full items-center justify-between border-b pb-2 text-left hover:opacity-70 transition-opacity"
+                    title={CATEGORY_DESCRIPTIONS[category]}
                   >
-                    <h3 className="text-xl font-bold capitalize text-slate-800 flex items-center gap-2">
-                      {isCollapsed ? <ChevronRight className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
-                      {category}
+                    <h3 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                      {isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                      {CATEGORY_LABELS[category]}
                       {inFeedCount > 0 && (
-                        <span className="text-sm font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                           {inFeedCount}
                         </span>
                       )}
@@ -237,10 +254,10 @@ export default function TriagePage() {
                   {!isCollapsed && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4">
                       {category === 'ignore' && summary?.ignore_content && (
-                        <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        <div className="rounded-xl border bg-slate-50 p-4 text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">
                           <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] text-blue-700">AI</span>
-                            Ignore Summary
+                            除外記事の要約
                           </h4>
                           {summary.ignore_content}
                         </div>
@@ -258,7 +275,7 @@ export default function TriagePage() {
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                          <p className="text-slate-400 font-medium">No articles in {category}.</p>
+                          <p className="text-slate-400 text-sm font-medium tracking-tight uppercase">NO ARTICLES IN {CATEGORY_LABELS[category]}</p>
                         </div>
                       )}
                     </div>
@@ -272,10 +289,10 @@ export default function TriagePage() {
             <Button
               onClick={handleMarkAllAsDone}
               size="lg"
-              className="rounded-full px-8 font-bold gap-2"
+              className="rounded-full px-8 font-bold gap-2 bg-slate-900 hover:bg-slate-800 text-sm"
             >
-              <Check className="h-5 w-5" />
-              Mark all as done
+              <Check className="h-4 w-4" />
+              すべて完了にする
             </Button>
           </div>
         </>

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { getFeedGroups, saveFeedGroup, deleteFeedGroup } from '@/lib/db-actions';
 import { FeedGroup } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Settings, Plus, Trash2, Save, X, Loader2, Globe } from 'lucide-react';
+import { Settings, Plus, Trash2, Save, X, Loader2, Globe, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -28,7 +28,7 @@ export default function SettingsPage() {
       setGroups(data);
     } catch (error) {
       console.error('Failed to load groups:', error);
-      toast.error('Failed to load feed groups');
+      toast.error('グループの読み込みに失敗しました');
     } finally {
       setLoading(false);
     }
@@ -51,25 +51,25 @@ export default function SettingsPage() {
     if (!editForm) return;
     try {
       await saveFeedGroup(editForm);
-      toast.success('Settings saved');
+      toast.success('設定を保存しました');
       setEditingId(null);
       setEditForm(null);
       loadGroups();
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save settings');
+      toast.error('設定の保存に失敗しました');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this group?')) return;
+    if (!confirm('このグループを削除してもよろしいですか？')) return;
     try {
       await deleteFeedGroup(id);
-      toast.success('Group deleted');
+      toast.success('グループを削除しました');
       loadGroups();
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete group');
+      toast.error('グループの削除に失敗しました');
     }
   };
 
@@ -77,7 +77,7 @@ export default function SettingsPage() {
     const newId = `group_${Date.now()}`;
     const newGroup: FeedGroup = {
       id: newId,
-      name: 'New Group',
+      name: '新しいグループ',
       keywords: [],
       feeds: [],
     };
@@ -141,87 +141,84 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container max-w-4xl space-y-8 pb-20 pt-8">
+    <div className="space-y-6 pb-20">
       <header className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Settings className="h-8 w-8 text-slate-700" />
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h2>
+          <p className="text-slate-500 text-sm font-medium">フィードグループとキーワードを管理します。</p>
         </div>
-        <Button onClick={handleAddGroup}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Group
+        <Button onClick={handleAddGroup} className="bg-slate-900 hover:bg-slate-800 font-bold h-9 rounded-full px-4 text-xs">
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          グループ追加
         </Button>
       </header>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {groups.map((group) => (
-          <Card key={group.id} className={editingId === group.id ? 'ring-2 ring-blue-500 shadow-lg' : ''}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div className="space-y-1 flex-1 pr-4">
+          <Card key={group.id} className={editingId === group.id ? 'ring-2 ring-blue-500 shadow-lg py-0 gap-0' : 'py-0 gap-0'}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 border-b bg-slate-50/50">
+              <div className="flex-1 pr-4">
                 {editingId === group.id ? (
                   <Input
                     value={editForm?.name}
                     onChange={(e) => setEditForm(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
-                    className="text-xl font-bold h-10"
-                    placeholder="Group Name"
+                    className="text-base font-bold h-9 bg-white"
+                    placeholder="グループ名"
                   />
                 ) : (
-                  <CardTitle className="text-xl">{group.name}</CardTitle>
+                  <CardTitle className="text-lg font-bold tracking-tight text-slate-900">{group.name}</CardTitle>
                 )}
-                <CardDescription className="font-mono text-xs">{group.id}</CardDescription>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center gap-1.5">
                 {editingId === group.id ? (
                   <>
-                    <Button variant="outline" size="sm" onClick={handleCancel}>
-                      <X className="mr-2 h-4 w-4" />
-                      Cancel
+                    <Button variant="ghost" size="icon" onClick={handleCancel} className="h-8 w-8 text-slate-400 hover:text-slate-600">
+                      <X className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-                      <Save className="mr-2 h-4 w-4" />
-                      Save
+                    <Button variant="ghost" size="icon" onClick={handleSave} className="h-8 w-8 text-blue-600 hover:bg-blue-50">
+                      <Save className="h-4 w-4" />
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(group)}>
-                      Edit
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(group)}>
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-600" onClick={() => handleDelete(group.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(group.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </>
                 )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="px-4 pt-3 pb-5 space-y-6">
               {/* Keywords Section */}
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-slate-900 uppercase tracking-wider">Keywords</label>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Keywords</label>
+                <div className="flex flex-wrap gap-1.5">
                   {(editingId === group.id ? editForm?.keywords : group.keywords)?.map((kw) => (
-                    <span key={kw} className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                    <span key={kw} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 tracking-tight">
                       {kw}
                       {editingId === group.id && (
                         <button
                           type="button"
                           onClick={() => removeKeyword(kw)}
-                          className="ml-1.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-blue-400 hover:bg-blue-200 hover:text-blue-600"
+                          className="ml-1 inline-flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-2.5 w-2.5" />
                         </button>
                       )}
                     </span>
                   ))}
                   {(editingId === group.id && editForm?.keywords.length === 0) && (
-                    <span className="text-sm text-slate-400 italic">No keywords added</span>
+                    <span className="text-xs text-slate-400 italic">No keywords added</span>
                   )}
                   {!(editingId === group.id) && group.keywords.length === 0 && (
-                    <span className="text-sm text-slate-400 italic">No keywords</span>
+                    <span className="text-xs text-slate-400 italic">No keywords</span>
                   )}
                 </div>
                 {editingId === group.id && (
-                  <div className="flex gap-2 max-w-sm">
+                  <div className="flex gap-1.5 max-w-sm pt-1">
                     <Input
                       placeholder="Add keyword..."
                       value={newKeyword}
@@ -232,42 +229,43 @@ export default function SettingsPage() {
                           addKeyword();
                         }
                       }}
+                      className="text-sm h-8"
                     />
-                    <Button variant="secondary" onClick={addKeyword}>Add</Button>
+                    <Button variant="secondary" onClick={addKeyword} className="font-bold h-8 text-[10px] px-3">ADD</Button>
                   </div>
                 )}
               </div>
 
               {/* RSS Feeds Section */}
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-slate-900 uppercase tracking-wider">RSS Feeds</label>
-                <div className="space-y-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">RSS Feeds</label>
+                <div className="space-y-1.5">
                   {(editingId === group.id ? editForm?.feeds : group.feeds)?.map((url) => (
-                    <div key={url} className="flex items-center justify-between group rounded-lg border bg-slate-50 p-2 pr-1 transition-colors hover:bg-white">
-                      <div className="flex items-center space-x-3 overflow-hidden">
+                    <div key={url} className="flex items-center justify-between group rounded-lg border bg-slate-50/50 p-2 pr-1 transition-colors hover:bg-white">
+                      <div className="flex items-center space-x-2.5 overflow-hidden">
                         <Globe className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                        <span className="truncate text-sm text-slate-600">{url}</span>
+                        <span className="truncate text-xs text-slate-600 font-medium">{url}</span>
                       </div>
                       {editingId === group.id && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          className="h-7 w-7 text-slate-400 hover:text-red-600"
                           onClick={() => removeFeed(url)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
                     </div>
                   ))}
                   {(editingId === group.id ? editForm?.feeds.length === 0 : group.feeds.length === 0) && (
-                    <div className="rounded-lg border border-dashed p-4 text-center text-sm text-slate-400">
-                      No RSS feeds added to this group.
+                    <div className="rounded-lg border border-dashed p-3 text-center text-xs text-slate-400 uppercase tracking-tighter">
+                      No RSS feeds added
                     </div>
                   )}
                 </div>
                 {editingId === group.id && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 pt-1">
                     <Input
                       placeholder="https://example.com/rss.xml"
                       value={newFeed}
@@ -278,8 +276,9 @@ export default function SettingsPage() {
                           addFeed();
                         }
                       }}
+                      className="text-sm h-8"
                     />
-                    <Button variant="secondary" onClick={addFeed}>Add Feed</Button>
+                    <Button variant="secondary" onClick={addFeed} className="font-bold h-8 text-[10px] px-3">ADD FEED</Button>
                   </div>
                 )}
               </div>

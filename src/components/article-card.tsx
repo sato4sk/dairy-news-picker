@@ -22,7 +22,7 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
     <Card className={`group/card flex flex-row h-full overflow-hidden transition-all duration-300 border-slate-200 p-0 gap-0 ${
       isTriaged ? 'opacity-60 grayscale-[0.8] bg-slate-50 shadow-none' : 'hover:shadow-md'
     }`}>
-      <div className="flex-1 flex flex-col min-w-0 py-2">
+      <div className="flex-1 flex flex-col min-w-0 py-1.5">
         <CardHeader className="px-4 py-0.5">
           <a 
             href={article.url} 
@@ -30,24 +30,24 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
             rel="noopener noreferrer"
             className="group/link transition-colors"
           >
-            <CardTitle className={`text-base font-bold leading-tight transition-colors line-clamp-2 ${
+            <CardTitle className={`text-sm font-bold leading-tight transition-colors line-clamp-2 ${
               isTriaged ? 'text-slate-500' : 'group-hover/link:text-blue-600 text-slate-900'
             }`}>
               {article.title}
             </CardTitle>
           </a>
         </CardHeader>
-        <CardContent className="px-4 py-0.5 selection-enabled flex flex-col gap-1.5">
-          <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">
+        <CardContent className="px-4 py-0.5 selection-enabled flex flex-col gap-1">
+          <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-2">
             {article.description}
           </p>
-          <div className="text-[9px] font-medium text-slate-400 uppercase tracking-tight leading-none mt-1">
-            {article.source || 'News Source'}
+          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight leading-none mt-1">
+            {article.source || 'ニュースソース'}
           </div>
         </CardContent>
       </div>
 
-      <div className="relative flex flex-col border-l bg-slate-50/50 w-12 shrink-0">
+      <div className="relative flex flex-col border-l bg-slate-50/50 w-11 shrink-0">
         {children ? (
           children
         ) : (
@@ -59,10 +59,10 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
                   : 'hover:bg-blue-50 hover:text-blue-600 text-slate-400'
               }`}
               onClick={() => onTriage?.(article.id, 'to_read')}
-              title="Read Later"
+              title="後で読む"
               disabled={isTriaged && article.status !== 'done'}
             >
-              <BookOpen className="h-5 w-5" />
+              <BookOpen className="h-4 w-4" />
             </button>
             <button 
               className={`flex-1 flex items-center justify-center transition-colors ${
@@ -71,10 +71,10 @@ export function ArticleCard({ article, onTriage, children, isTriaged: isTriagedP
                   : 'hover:bg-purple-50 hover:text-purple-600 text-slate-400'
               }`}
               onClick={() => onTriage?.(article.id, 'to_notebook')}
-              title="NotebookLM"
+              title="NotebookLMに追加"
               disabled={isTriaged && article.status !== 'done'}
             >
-              <Library className="h-5 w-5" />
+              <Library className="h-4 w-4" />
             </button>
           </>
         )}
