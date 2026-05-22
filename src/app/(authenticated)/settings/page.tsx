@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getFeedGroups, saveFeedGroup, deleteFeedGroup } from '@/lib/db-actions';
+import { getFeedGroups, saveFeedGroup, deleteFeedGroup, updateFeedGroupsOrder } from '@/lib/db-actions';
 import { FeedGroup } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Settings, Plus, Trash2, Save, X, Loader2, Globe, Edit2 } from 'lucide-react';
+import { Settings, Plus, Trash2, Save, X, Loader2, Globe, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -66,6 +66,10 @@ export default function SettingsPage() {
     try {
       await deleteFeedGroup(id);
       toast.success('グループを削除しました');
+      const updatedGroups = groups.filter(g => g.id !== id);
+      // Re-index remaining groups to maintain order consistency
+      const reorderedGroups = updatedGroups.map((g, index) => ({ ...g, order: index }));
+      await updateFeedGroupsOrder(reorderedGroups.map(g => ({ id: g.id, order: g.order })));
       loadGroups();
     } catch (error) {
       console.error('Delete error:', error);
@@ -80,12 +84,42 @@ export default function SettingsPage() {
       name: '新しいグループ',
       keywords: [],
       feeds: [],
+      order: groups.length,
     };
-    setGroups(prev => [newGroup, ...prev]);
+    setGroups(prev => [...prev, newGroup]);
     setEditingId(newId);
     setEditForm(newGroup);
     setNewKeyword('');
     setNewFeed('');
+  };
+
+  const handleMoveGroup = async (index: number, direction: 'up' | 'down') => {
+    const newGroups = [...groups];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= newGroups.length) return;
+
+    // Swap
+    const temp = newGroups[index];
+    newGroups[index] = newGroups[targetIndex];
+    newGroups[targetIndex] = temp;
+
+    // Update order values
+    const updatedGroups = newGroups.map((group, idx) => ({
+      ...group,
+      order: idx
+    }));
+
+    setGroups(updatedGroups);
+
+    try {
+      await updateFeedGroupsOrder(updatedGroups.map(g => ({ id: g.id, order: g.order })));
+      toast.success('順序を更新しました');
+    } catch (error) {
+      console.error('Failed to update order:', error);
+      toast.error('順序の更新に失敗しました');
+      loadGroups(); // Revert on failure
+    }
   };
 
   // Keyword Helpers
@@ -181,6 +215,26 @@ export default function SettingsPage() {
                   </>
                 ) : (
                   <>
+                    <div className="flex items-center gap-0.5 mr-1 border-r pr-1.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-slate-400 hover:text-slate-600"
+                        onClick={() => handleMoveGroup(groups.indexOf(group), 'up')}
+                        disabled={groups.indexOf(group) === 0}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-slate-400 hover:text-slate-600"
+                        onClick={() => handleMoveGroup(groups.indexOf(group), 'down')}
+                        disabled={groups.indexOf(group) === groups.length - 1}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(group)}>
                       <Edit2 className="h-4 w-4" />
                     </Button>

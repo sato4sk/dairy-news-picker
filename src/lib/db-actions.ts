@@ -28,8 +28,20 @@ function sanitizeFirestoreData(data: any) {
 export async function getFeedGroups(): Promise<FeedGroup[]> {
   const snapshot = await adminDb
     .collection(FEED_GROUPS_COLLECTION)
+    .orderBy('order', 'asc')
     .get();
   
+  if (snapshot.empty) {
+    // Fallback for transition period if order doesn't exist on any docs
+    const allSnapshot = await adminDb.collection(FEED_GROUPS_COLLECTION).get();
+    return allSnapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...sanitizeFirestoreData(doc.data()),
+      }))
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)) as FeedGroup[];
+  }
+
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...sanitizeFirestoreData(doc.data()),
@@ -42,6 +54,15 @@ export async function saveFeedGroup(group: FeedGroup) {
     ...data,
     updated_at: new Date().toISOString(),
   }, { merge: true });
+}
+
+export async function updateFeedGroupsOrder(groupOrders: { id: string; order: number }[]) {
+  const batch = adminDb.batch();
+  groupOrders.forEach(({ id, order }) => {
+    const ref = adminDb.collection(FEED_GROUPS_COLLECTION).doc(id);
+    batch.update(ref, { order, updated_at: new Date().toISOString() });
+  });
+  await batch.commit();
 }
 
 export async function deleteFeedGroup(id: string) {

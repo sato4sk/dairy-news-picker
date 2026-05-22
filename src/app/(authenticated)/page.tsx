@@ -225,14 +225,16 @@ export default function TriagePage() {
               AI Summary
             </h3>
             <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-wrap">
-              {summary?.content || "この日付とグループの要約はありません。"}
+              {summary?.content || "要約はありません。"}
             </p>
           </section>
 
           <div className="space-y-8">
             {VISIBLE_CATEGORIES.map((category) => {
               const isCollapsed = collapsedCategories[category];
-              const inFeedCount = categorizedArticles[category].filter(a => a.status === 'in_feed').length;
+              const inFeedCount = articles.filter(a => a.category === category && a.status === 'in_feed').length;
+              const categoryArticles = articles.filter(a => a.category === category);
+              
               return (
                 <section key={category} className="space-y-4">
                   <button 
@@ -263,9 +265,9 @@ export default function TriagePage() {
                         </div>
                       )}
                       
-                      {categorizedArticles[category].length > 0 ? (
+                      {categoryArticles.length > 0 ? (
                         <div className="grid grid-cols-1 gap-3">
-                          {categorizedArticles[category].map((article) => (
+                          {categoryArticles.map((article) => (
                             <ArticleCard
                               key={article.id}
                               article={article}
@@ -275,7 +277,7 @@ export default function TriagePage() {
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                          <p className="text-slate-400 text-sm font-medium tracking-tight uppercase">NO ARTICLES IN {CATEGORY_LABELS[category]}</p>
+                          <p className="text-slate-400 text-sm font-medium tracking-tight uppercase">{CATEGORY_LABELS[category]} に記事はありません</p>
                         </div>
                       )}
                     </div>
