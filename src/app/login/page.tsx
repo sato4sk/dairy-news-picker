@@ -19,7 +19,7 @@ export default function LoginPage() {
     const result = await login(formData);
 
     if (result?.error) {
-      setError(result.error);
+      setError('パスワードが正しくありません');
       setLoading(false);
     }
   }
@@ -28,9 +28,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold tracking-tight">Login</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">ログイン</CardTitle>
           <CardDescription>
-            Enter the application password to continue.
+            アプリケーションパスワードを入力して続行してください。
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -40,7 +40,7 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Enter password"
+                placeholder="パスワードを入力"
                 required
                 autoFocus
               />
@@ -51,7 +51,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter>
             <Button className="w-full" type="submit" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'ログイン中...' : 'ログイン'}
             </Button>
           </CardFooter>
         </form>
