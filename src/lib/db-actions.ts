@@ -11,12 +11,13 @@ const FEED_GROUPS_COLLECTION = 'feed_groups';
  * Sanitizes Firestore data by converting Timestamps to ISO strings.
  * This is required to pass data from Server Actions to Client Components.
  */
-function sanitizeFirestoreData(data: any) {
+function sanitizeFirestoreData(data: Record<string, unknown> | null) {
   if (!data) return data;
   const sanitized = { ...data };
   for (const key in sanitized) {
-    if (sanitized[key] && typeof sanitized[key].toDate === 'function') {
-      sanitized[key] = sanitized[key].toDate().toISOString();
+    const value = sanitized[key];
+    if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
+      sanitized[key] = (value as { toDate: () => Date }).toDate().toISOString();
     }
   }
   return sanitized;
@@ -39,7 +40,11 @@ export async function getFeedGroups(): Promise<FeedGroup[]> {
         id: doc.id,
         ...sanitizeFirestoreData(doc.data()),
       }))
-      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)) as FeedGroup[];
+      .sort((a, b) => {
+        const orderA = (a as FeedGroup).order ?? 0;
+        const orderB = (b as FeedGroup).order ?? 0;
+        return orderA - orderB;
+      }) as FeedGroup[];
   }
 
   return snapshot.docs.map((doc) => ({
@@ -111,9 +116,10 @@ export async function getArticlesByDate(date: Date, groupId: string): Promise<Ar
         ...doc.data(),
       })) as Article[];
     }
-  } catch (error: any) {
+  } catch (error) {
     // Fallback if index is missing
-    console.warn('Triaged_at query failed, falling back to published_at:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Triaged_at query failed, falling back to published_at:', message);
   }
 
   // Fallback for older articles or transition period
@@ -159,8 +165,8 @@ export async function getNotebookQueue(limit: number = 10): Promise<Article[]> {
 }
 
 export async function updateArticleStatus(id: string, status: ArticleStatus) {
-  const data: any = { status };
-  
+  const data: Partial<Article> & { updated_at?: string; queued_at?: string } = { status };
+
   if (status === 'to_notebook') {
     data.queued_at = new Date().toISOString();
   }
@@ -170,10 +176,10 @@ export async function updateArticleStatus(id: string, status: ArticleStatus) {
 
 export async function batchUpdateStatus(ids: string[], status: ArticleStatus) {
   const batch = adminDb.batch();
-  
+
   ids.forEach((id) => {
     const ref = adminDb.collection(ARTICLES_COLLECTION).doc(id);
-    const data: any = { status };
+    const data: Partial<Article> & { updated_at?: string; queued_at?: string } = { status };
     if (status === 'to_notebook') {
       data.queued_at = new Date().toISOString();
     }

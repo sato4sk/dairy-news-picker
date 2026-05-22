@@ -125,13 +125,6 @@ export default function TriagePage() {
     }
   };
 
-  const categorizedArticles: Record<VisibleCategory, Article[]> = {
-    core: articles.filter((a) => a.category === 'core'),
-    related: articles.filter((a) => a.category === 'related'),
-    random: articles.filter((a) => a.category === 'random'),
-    ignore: articles.filter((a) => a.category === 'ignore'),
-  };
-
   const toggleCategory = (category: string) => {
     setCollapsedCategories(prev => ({
       ...prev,
