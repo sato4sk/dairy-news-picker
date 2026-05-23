@@ -23,6 +23,12 @@ if [ -z "$GEMINI_API_KEY" ]; then
 fi
 
 echo "Deploying functions to project: $GOOGLE_CLOUD_PROJECT in region: $REGION"
+
+echo "----------------------------------------"
+echo "Running pre-deploy checks..."
+npm run verify
+npm --prefix functions test
+
 # 1. Deploy fetchFeeds
 echo "----------------------------------------"
 echo "Deploying news-picker-fetch-feeds (Cloud Run function)..."

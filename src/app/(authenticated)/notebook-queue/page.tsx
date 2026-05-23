@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Article, ArticleStatus } from '@/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Copy, Check, CheckCircle2, Loader2, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';

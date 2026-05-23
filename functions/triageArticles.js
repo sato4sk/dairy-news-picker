@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 const { GoogleGenAI } = require("@google/genai");
-const { format, addHours } = require('date-fns');
 
 // Initialize Admin SDK
 if (!admin.apps.length) {
@@ -160,14 +159,14 @@ const summarySchema = {
 /**
  * Utility for Gemini calls with model fallback and retry logic
  */
-async function callGemini(prompt, schema, modelIndex) {
+async function callGemini(prompt, schema, modelIndex, aiClient = ai, sleepFn = sleep) {
   let idx = modelIndex;
   while (idx < MODELS.length) {
     let retryCount = 0;
     while (retryCount <= MAX_RETRIES) {
       const startTime = Date.now();
       try {
-        const response = await ai.models.generateContent({
+        const response = await aiClient.models.generateContent({
           model: MODELS[idx],
           contents: prompt,
           config: {
@@ -198,7 +197,7 @@ async function callGemini(prompt, schema, modelIndex) {
           if (retryCount < MAX_RETRIES) {
             const backoff = INITIAL_BACKOFF_MS * Math.pow(2, retryCount);
             console.warn(`Server error (${status}) with ${MODELS[idx]}. Retrying in ${backoff}ms... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
-            await sleep(backoff);
+            await sleepFn(backoff);
             retryCount++;
             continue; // Retry with same model
           } else {
@@ -217,63 +216,65 @@ async function callGemini(prompt, schema, modelIndex) {
   throw new Error("All Gemini models exhausted or failed.");
 }
 
-/**
- * 2. Triage 'raw' articles using Gemini
- */
-const triageArticles = async (req, res) => {
-  const triageStartTime = Date.now();
-  let currentModelIndex = 0;
+function getTriageDay(now) {
+  const jstOffsetMs = 9 * 60 * 60 * 1000;
+  return new Date(now.getTime() + jstOffsetMs).toISOString().slice(0, 10);
+}
 
-  try {
-    const now = new Date();
-    // Use true UTC for timestamp
-    const triagedAt = now.toISOString();
-    
-    // Use JST for logical daily grouping (e.g. 6:00 AM JST is today's triage)
-    const jstNow = addHours(now, 9);
-    const today = format(jstNow, 'yyyy-MM-dd');
+function createTriageArticles({ db, ai, now = () => new Date(), sleepFn = sleep, logger = console }) {
+  return async (req, res) => {
+    const triageStartTime = Date.now();
+    let currentModelIndex = 0;
 
-    console.log(`Starting triage at UTC: ${triagedAt} (JST: ${today})`);
+    try {
+      const current = now();
+      // Use true UTC for timestamp
+      const triagedAt = current.toISOString();
+      
+      // Use JST for logical daily grouping (e.g. 6:00 AM JST is today's triage)
+      const today = getTriageDay(current);
 
-    // Fetch feed groups from Firestore
-    const groupsSnapshot = await db.collection('feed_groups').get();
-    const feedGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      logger.log(`Starting triage at UTC: ${triagedAt} (JST: ${today})`);
 
-    if (feedGroups.length === 0) {
-      console.log('No feed groups found in Firestore.');
-      return res.status(200).send('No feed groups to triage.');
-    }
+      // Fetch feed groups from Firestore
+      const groupsSnapshot = await db.collection('feed_groups').get();
+      const feedGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    for (const groupConfig of feedGroups) {
-      const groupId = groupConfig.id;
-      const snapshot = await db.collection('articles')
-        .where('group', '==', groupId)
-        .where('is_triaged', '==', false)
-        .limit(300)
-        .get();
-
-      if (snapshot.empty) {
-        console.log(`No untriaged articles for group: ${groupConfig.name}`);
-        continue;
+      if (feedGroups.length === 0) {
+        logger.log('No feed groups found in Firestore.');
+        return res.status(200).send('No feed groups to triage.');
       }
 
-      const articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log(`Triaging ${articles.length} articles for group: ${groupConfig.name}`);
+      for (const groupConfig of feedGroups) {
+        const groupId = groupConfig.id;
+        const snapshot = await db.collection('articles')
+          .where('group', '==', groupId)
+          .where('is_triaged', '==', false)
+          .limit(300)
+          .get();
 
-      // Deduplicate before processing
-      const uniqueArticles = await deduplicateArticles(articles, db);
-      console.log(`Group: ${groupConfig.name}, Unique Articles: ${uniqueArticles.length}/${articles.length}`);
+        if (snapshot.empty) {
+          logger.log(`No untriaged articles for group: ${groupConfig.name}`);
+          continue;
+        }
 
-      const CHUNK_SIZE = 100;
-      const coreAndRelated = [];
-      const ignoredToSummarize = [];
-      const stats = { core: 0, related: 0, random: 0, ignore: 0 };
+        const articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        logger.log(`Triaging ${articles.length} articles for group: ${groupConfig.name}`);
 
-      for (let i = 0; i < uniqueArticles.length; i += CHUNK_SIZE) {
-        const chunk = uniqueArticles.slice(i, i + CHUNK_SIZE);
-        const maxRandom = Math.max(1, Math.floor(chunk.length * 0.1));
+        // Deduplicate before processing
+        const uniqueArticles = await deduplicateArticles(articles, db);
+        logger.log(`Group: ${groupConfig.name}, Unique Articles: ${uniqueArticles.length}/${articles.length}`);
 
-        const prompt = `
+        const CHUNK_SIZE = 100;
+        const coreAndRelated = [];
+        const ignoredToSummarize = [];
+        const stats = { core: 0, related: 0, random: 0, ignore: 0 };
+
+        for (let i = 0; i < uniqueArticles.length; i += CHUNK_SIZE) {
+          const chunk = uniqueArticles.slice(i, i + CHUNK_SIZE);
+          const maxRandom = Math.max(1, Math.floor(chunk.length * 0.1));
+
+          const prompt = `
           Task: Classify these news articles for the group "${groupConfig.name}".
           Interests: ${groupConfig.keywords.join(", ")}
           
@@ -287,65 +288,81 @@ const triageArticles = async (req, res) => {
           ${chunk.map((a, idx) => `[${idx}] ${a.title}\n${a.description}`).join("\n\n")}
         `;
 
-        const { result, nextIndex } = await callGemini(prompt, classificationSchema, currentModelIndex);
-        currentModelIndex = nextIndex;
+          const { result, nextIndex } = await callGemini(prompt, classificationSchema, currentModelIndex, ai, sleepFn);
+          currentModelIndex = nextIndex;
 
-        const batch = db.batch();
-        result.articles.forEach(p => {
-          const orig = chunk[p.originalIndex];
-          if (!orig) return;
+          const batch = db.batch();
+          result.articles.forEach(p => {
+            const orig = chunk[p.originalIndex];
+            if (!orig) return;
 
-          stats[p.category]++;
-          const updateData = {
-            category: p.category,
-            is_triaged: true,
-            status: 'in_feed',
-            triaged_at: triagedAt,
-          };
-          
-          batch.update(db.collection('articles').doc(orig.id), updateData);
+            stats[p.category]++;
+            const updateData = {
+              category: p.category,
+              is_triaged: true,
+              status: 'in_feed',
+              triaged_at: triagedAt,
+            };
+            
+            batch.update(db.collection('articles').doc(orig.id), updateData);
 
-          if (p.category === 'core' || p.category === 'related') {
-            coreAndRelated.push(orig);
-          } else if (p.category === 'ignore') {
-            ignoredToSummarize.push(orig);
-          }
-        });
-        await batch.commit();
-      }
-
-      console.log(`[${groupConfig.name}] Stats: core=${stats.core}, related=${stats.related}, random=${stats.random}, ignore=${stats.ignore}`);
-
-      // Generate summaries
-      const ignoreSummary = await callGeminiSingleModel(ignoredToSummarize, groupConfig.name, ai, true);
-
-      if (coreAndRelated.length > 0 || ignoreSummary) {
-        let coreSummary = null;
-        if (coreAndRelated.length > 0) {
-          const prompt = BUILD_SUMMARY_PROMPT(groupConfig.name, coreAndRelated);
-
-          const { result: summaryResult, nextIndex: sIdx } = await callGemini(prompt, summarySchema, currentModelIndex);
-          currentModelIndex = sIdx;
-          coreSummary = summaryResult.dailySummary;
+            if (p.category === 'core' || p.category === 'related') {
+              coreAndRelated.push(orig);
+            } else if (p.category === 'ignore') {
+              ignoredToSummarize.push(orig);
+            }
+          });
+          await batch.commit();
         }
 
-        const summaryId = `${today}_${groupId}`;
-        await db.collection('daily_summaries').doc(summaryId).set({
-          id: summaryId,
-          group: groupId,
-          content: coreSummary || "No primary news summary available.",
-          ignore_content: ignoreSummary,
-        }, { merge: true });
+        logger.log(`[${groupConfig.name}] Stats: core=${stats.core}, related=${stats.related}, random=${stats.random}, ignore=${stats.ignore}`);
+
+        // Generate summaries
+        const ignoreSummary = await callGeminiSingleModel(ignoredToSummarize, groupConfig.name, ai, true);
+
+        if (coreAndRelated.length > 0 || ignoreSummary) {
+          let coreSummary = null;
+          if (coreAndRelated.length > 0) {
+            const prompt = BUILD_SUMMARY_PROMPT(groupConfig.name, coreAndRelated);
+
+            const { result: summaryResult, nextIndex: sIdx } = await callGemini(prompt, summarySchema, currentModelIndex, ai, sleepFn);
+            currentModelIndex = sIdx;
+            coreSummary = summaryResult.dailySummary;
+          }
+
+          const summaryId = `${today}_${groupId}`;
+          await db.collection('daily_summaries').doc(summaryId).set({
+            id: summaryId,
+            group: groupId,
+            content: coreSummary || "No primary news summary available.",
+            ignore_content: ignoreSummary,
+          }, { merge: true });
+        }
       }
+
+      res.status(200).send('Triage completed');
+      const totalDuration = Date.now() - triageStartTime;
+      logger.log(`Triage Task Finished. Total Duration: ${totalDuration}ms`);
+    } catch (error) {
+      logger.error('Triage Error:', error);
+      res.status(500).send(error.message);
     }
+  };
+}
 
-    res.status(200).send('Triage completed');
-    const totalDuration = Date.now() - triageStartTime;
-    console.log(`Triage Task Finished. Total Duration: ${totalDuration}ms`);
-  } catch (error) {
-    console.error('Triage Error:', error);
-    res.status(500).send(error.message);
-  }
+/**
+ * 2. Triage 'raw' articles using Gemini
+ */
+const triageArticles = createTriageArticles({ db, ai });
+
+module.exports = {
+  triageArticles,
+  createTriageArticles,
+  normalizeUrl,
+  normalizeTitle,
+  deduplicateArticles,
+  callGemini,
+  callGeminiSingleModel,
+  getTriageDay,
+  MODELS,
 };
-
-module.exports = { triageArticles };

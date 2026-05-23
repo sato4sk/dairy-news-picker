@@ -6,7 +6,7 @@ import { FeedGroup } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Settings, Plus, Trash2, Save, X, Loader2, Globe, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Save, X, Loader2, Globe, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {

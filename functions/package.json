@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "functions-framework --target=fetchFeeds --port=8080"
+    "dev": "functions-framework --target=fetchFeeds --port=8080",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.5.0",
-    "firebase-admin": "^13.0.0",
     "@google/genai": "^0.8.0",
-    "rss-parser": "^3.13.0",
-    "date-fns": "^2.30.0"
+    "date-fns": "^2.30.0",
+    "firebase-admin": "^13.0.0",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
   }
 }
