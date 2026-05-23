@@ -1,0 +1,58 @@
+# Optional Cloud Build pipeline for deploying Cloud Run functions only after tests pass.
+#
+# Required substitutions:
+#   _REGION: asia-northeast1
+#   _GEMINI_API_KEY: Gemini API key, preferably supplied from Secret Manager in a real pipeline.
+
+steps:
+  - name: node:22
+    entrypoint: npm
+    args: ["ci"]
+
+  - name: node:22
+    entrypoint: npm
+    args: ["run", "verify"]
+
+  - name: node:22
+    dir: functions
+    entrypoint: npm
+    args: ["ci"]
+
+  - name: node:22
+    dir: functions
+    entrypoint: npm
+    args: ["test"]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - news-picker-fetch-feeds
+      - --source=./functions
+      - --function=fetchFeeds
+      - --base-image=nodejs22
+      - --region=${_REGION}
+      - --cpu=1
+      - --memory=512Mi
+      - --timeout=300
+      - --no-allow-unauthenticated
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - news-picker-triage-articles
+      - --source=./functions
+      - --function=triageArticles
+      - --base-image=nodejs22
+      - --region=${_REGION}
+      - --cpu=1
+      - --memory=512Mi
+      - --timeout=300
+      - --no-allow-unauthenticated
+      - --set-env-vars=GEMINI_API_KEY=${_GEMINI_API_KEY}
+
+substitutions:
+  _REGION: asia-northeast1
